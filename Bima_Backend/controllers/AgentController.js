@@ -1,0 +1,501 @@
+const User = require("../models/User");
+const Insurance = require("../models/Insurance");
+const askGemini = require("../service/gemini");
+
+/* =========================================
+   ENUM VALIDATION HELPERS
+========================================= */
+
+const AGE_GROUPS = ["age_18_30", "age_31_45", "age_46_60", "age_60_plus"];
+const OCCUPATIONS = [
+    "FARMER",
+    "STUDENT",
+    "LABORER",
+    "SELF_EMPLOYED",
+    "PRIVATE_JOB",
+    "GOVERNMENT_JOB",
+    "HOMEMAKER",
+    "OTHER",
+];
+
+const INCOME_RANGES = [
+    "BELOW_1_LAKH",
+    "ONE_TO_TWO_LAKH",
+    "TWO_TO_FIVE_LAKH",
+    "ABOVE_FIVE_LAKH",
+];
+
+const CONCERNS = ["Health", "Life", "Crop", "Accident"];
+
+
+/* =========================================
+   MAIN CONTROLLER (BUTTON BASED)
+========================================= */
+
+exports.chatWithAgent = async (req, res) => {
+    try {
+        const { userId, action, value, language = "en" } = req.body;
+        console.log("Received chat request:", { userId, action, value, language });
+        if (!userId || !action) {
+            return res.status(400).json({
+                success: false,
+                message: "userId and action are required",
+            });
+        }
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        switch (action) {
+
+
+            case "GET_RECOMMENDATION":
+
+                // 🟢 If survey already completed → give recommendation
+                if (
+                    user.hasCompletedSurvey &&
+                    user.surveyResponses?.ageGroup &&
+                    user.surveyResponses?.occupation &&
+                    user.surveyResponses?.incomeRange &&
+                    user.surveyResponses?.primaryConcern
+                ) {
+                    return generateRecommendation(user, language, res);
+                }
+
+                // 🟡 If survey not started yet → initialize it
+                if (user.surveyProgress.currentStep === 0) {
+                    user.surveyProgress.currentStep = 1;
+                    user.surveyProgress.tempAnswers = {};
+                    await user.save();
+
+                    return res.json({
+                        reply: getMessage("AGE_QUESTION", language),
+                        options: AGE_GROUPS,
+                    });
+                }
+
+                // 🔵 If survey in progress → continue it
+                return continueSurvey(user, value, language, res);
+
+
+            /* =====================================================
+               OTHER ACTIONS
+            ===================================================== */
+
+            case "CLAIM_HELP":
+                return claimHelp(user, language, res);
+
+            case "CLAIM_FRAUD":
+                return claimFraud(language, res);
+
+            case "CANCEL_POLICY":
+                return cancelPolicy(language, res);
+
+            case "PREMIUM_INFO":
+                return premiumInfo(language, res);
+            case "FREE_TEXT":
+                const aiReply = await askGemini(value, language);
+                return res.json({ reply: aiReply });
+
+            default:
+                return generalReply(language, res);
+        }
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            error: error.message,
+        });
+    }
+};
+
+
+/* =========================================
+   START SURVEY
+========================================= */
+
+const startSurvey = async (user, language, res) => {
+    user.surveyProgress.currentStep = 1;
+    user.surveyProgress.tempAnswers = {};
+    await user.save();
+
+    return res.json({
+        reply: getMessage("AGE_QUESTION", language),
+        options: AGE_GROUPS,
+    });
+};
+
+
+/* =========================================
+   CONTINUE SURVEY
+========================================= */
+
+const continueSurvey = async (user, value, language, res) => {
+    const step = user.surveyProgress.currentStep;
+
+    if (!value) {
+        return res.json({
+            reply: getMessage("INVALID_OPTION", language),
+        });
+    }
+
+    /* -------- STEP 1: AGE -------- */
+    if (step === 1) {
+        if (!AGE_GROUPS.includes(value)) {
+            return res.json({
+                reply: getMessage("INVALID_AGE", language),
+                options: AGE_GROUPS,
+            });
+        }
+
+        user.surveyProgress.tempAnswers.ageGroup = value;
+        user.surveyProgress.currentStep = 2;
+        await user.save();
+
+        return res.json({
+            reply: getMessage("OCCUPATION_QUESTION", language),
+            options: OCCUPATIONS,
+        });
+    }
+
+    /* -------- STEP 2: OCCUPATION -------- */
+    if (step === 2) {
+        if (!OCCUPATIONS.includes(value)) {
+            return res.json({
+                reply: getMessage("INVALID_OCCUPATION", language),
+                options: OCCUPATIONS,
+            });
+        }
+
+        user.surveyProgress.tempAnswers.occupation = value;
+        user.surveyProgress.currentStep = 3;
+        await user.save();
+
+        return res.json({
+            reply: getMessage("INCOME_QUESTION", language),
+            options: INCOME_RANGES,
+        });
+    }
+
+    /* -------- STEP 3: INCOME -------- */
+    if (step === 3) {
+        if (!INCOME_RANGES.includes(value)) {
+            return res.json({
+                reply: getMessage("INVALID_INCOME", language),
+                options: INCOME_RANGES,
+            });
+        }
+
+        user.surveyProgress.tempAnswers.incomeRange = value;
+        user.surveyProgress.currentStep = 4;
+        await user.save();
+
+        return res.json({
+            reply: getMessage("CONCERN_QUESTION", language),
+            options: CONCERNS,
+        });
+    }
+
+    /* -------- STEP 4: CONCERN -------- */
+    if (step === 4) {
+        if (!CONCERNS.includes(value)) {
+            return res.json({
+                reply: getMessage("INVALID_CONCERN", language),
+                options: CONCERNS,
+            });
+        }
+
+        // Save final answer temporarily
+        user.surveyProgress.tempAnswers.primaryConcern = value;
+
+        const { ageGroup, occupation, incomeRange, primaryConcern } =
+            user.surveyProgress.tempAnswers;
+
+        // 🔴 VALIDATION CHECK
+        if (
+            !ageGroup ||
+            !occupation ||
+            !incomeRange ||
+            !primaryConcern ||
+            ageGroup === "" ||
+            occupation === "" ||
+            incomeRange === "" ||
+            primaryConcern === ""
+        ) {
+            // Reset survey
+            user.surveyProgress.currentStep = 1;
+            user.surveyProgress.tempAnswers = {};
+            user.hasCompletedSurvey = false;
+
+            await user.save();
+
+            return res.json({
+                reply: getMessage("SURVEY_RESTART", language),
+                options: AGE_GROUPS,
+            });
+        }
+
+        // ✅ All valid → Save permanently
+        user.surveyResponses = {
+            ageGroup,
+            occupation,
+            incomeRange,
+            primaryConcern,
+        };
+
+        user.hasCompletedSurvey = true;
+        user.surveyProgress.currentStep = 0;
+        user.surveyProgress.tempAnswers = {};
+
+        await user.save();
+
+        return generateRecommendation(user, language, res);
+    }
+
+};
+
+
+/* =========================================
+   RECOMMENDATION ENGINE
+========================================= */
+
+const generateRecommendation = async (user, language, res) => {
+    // 🔴 If survey not completed OR data missing → start survey
+    if (
+        !user.hasCompletedSurvey ||
+        !user.surveyResponses ||
+        !user.surveyResponses.ageGroup ||
+        !user.surveyResponses.occupation ||
+        !user.surveyResponses.incomeRange ||
+        !user.surveyResponses.primaryConcern
+    ) {
+        return startSurvey(user, language, res);
+    }
+
+    const concern = user.surveyResponses.primaryConcern;
+
+    const plans = await Insurance.find({ type: concern });
+
+    const recommendations = plans.map((p) => ({
+        id: p._id,
+        name: p.name?.[language] || p.name?.en,
+        description:
+            p.shortDescription?.[language] || p.shortDescription?.en,
+    }));
+
+    return res.json({
+        reply: getMessage("RECOMMEND_RESULT", language),
+        recommendations,
+    });
+};
+
+
+
+/* =========================================
+   OTHER ACTIONS
+========================================= */
+
+// const claimHelp = (language, res) => {
+//     return res.json({
+//         reply: getMessage("CLAIM_HELP", language),
+//     });
+// };
+const claimHelp = (user, language, res) => {
+    console.log("User in claimHelp:", user);
+    const type = user.surveyResponses?.primaryConcern;
+
+    if (!type) {
+        return res.json({
+            reply:
+                language === "hi"
+                    ? "कृपया पहले बीमा प्रकार चुनें।"
+                    : language === "mr"
+                        ? "कृपया आधी विमा प्रकार निवडा."
+                        : "Please select your insurance type first.",
+        });
+    }
+
+    let reply;
+
+    switch (type) {
+
+        case "Health":
+            reply =
+                language === "hi"
+                    ? "स्वास्थ्य बीमा क्लेम के लिए अधिकृत अस्पताल जाएं और पहचान पत्र साथ रखें।"
+                    : language === "mr"
+                        ? "आरोग्य विम्यासाठी अधिकृत रुग्णालयात जा आणि ओळखपत्र बाळगा."
+                        : "For health insurance claim, visit an empaneled hospital with your ID proof.";
+            break;
+
+        case "Life":
+            reply =
+                language === "hi"
+                    ? "जीवन बीमा क्लेम के लिए मृत्यु प्रमाण पत्र और पॉलिसी दस्तावेज़ जमा करें।"
+                    : language === "mr"
+                        ? "जीवन विमा क्लेमसाठी मृत्यू प्रमाणपत्र आणि पॉलिसी कागदपत्रे सादर करा."
+                        : "For life insurance claim, submit death certificate and policy documents to the insurer.";
+            break;
+
+        case "Crop":
+            reply =
+                language === "hi"
+                    ? "फसल बीमा क्लेम के लिए नुकसान की सूचना स्थानीय कृषि अधिकारी को दें।"
+                    : language === "mr"
+                        ? "पिक विमा क्लेमसाठी नुकसानाची माहिती स्थानिक कृषी अधिकाऱ्यांना द्या."
+                        : "For crop insurance claim, report crop damage to the local agriculture officer immediately.";
+            break;
+
+        case "Accident":
+            reply =
+                language === "hi"
+                    ? "दुर्घटना बीमा क्लेम के लिए पुलिस रिपोर्ट और मेडिकल दस्तावेज़ जमा करें।"
+                    : language === "mr"
+                        ? "अपघात विमा क्लेमसाठी पोलीस अहवाल आणि वैद्यकीय कागदपत्रे सादर करा."
+                        : "For accident insurance claim, submit police report and medical documents.";
+            break;
+
+        default:
+            reply =
+                language === "hi"
+                    ? "कृपया क्लेम का प्रकार चुनें।"
+                    : language === "mr"
+                        ? "कृपया क्लेम प्रकार निवडा."
+                        : "Please select the type of insurance claim.";
+    }
+
+    return res.json({
+        reply, redirect: {
+            label: "fileClaimNow",
+            route: "ClaimSc"
+        }
+    });
+};
+
+
+const claimFraud = (language, res) => {
+    return res.json({
+        redirect: {
+            label: "reportFraud",
+            route: "FraudSc"
+        },
+        reply:
+            language === "hi"
+                ? "बीमा धोखाधड़ी अवैध है। यदि आपका दावा सही है, तो मैं आपकी मदद कर सकता हूँ।"
+                : language === "mr"
+                    ? "विमा फसवणूक बेकायदेशीर आहे. जर तुमचा दावा योग्य असेल तर मी मदत करू शकतो."
+                    : "Insurance fraud is illegal and punishable by law.",
+
+    });
+};
+
+const cancelPolicy = (language, res) => {
+    return res.json({
+        reply:
+            language === "hi"
+                ? "पॉलिसी रद्द करने के लिए कृपया अपने बीमा प्रदाता से संपर्क करें।"
+                : language === "mr"
+                    ? "पॉलिसी रद्द करण्यासाठी कृपया विमा प्रदात्याशी संपर्क साधा."
+                    : "To cancel your policy, please contact your insurance provider.",
+    });
+};
+
+const premiumInfo = (language, res) => {
+
+    return res.json({
+        redirect: {
+            label: "premiumDetails",
+            route: "insurance"
+        },
+        reply:
+            language === "hi"
+                ? "प्रीमियम योजना और कवरेज पर निर्भर करता है।"
+                : language === "mr"
+                    ? "प्रीमियम योजना आणि कव्हरेजवर अवलंबून असतो."
+                    : "Premium depends on your selected insurance plan and coverage.",
+    });
+};
+
+const generalReply = (language, res) => {
+    return res.json({
+        reply: getMessage("GENERAL", language),
+    });
+};
+
+
+/* =========================================
+   MULTILINGUAL MESSAGES
+========================================= */
+
+const getMessage = (key, lang) => {
+    const messages = {
+        AGE_QUESTION: {
+            en: "What is your age group?",
+            hi: "आपकी आयु समूह क्या है?",
+            mr: "तुमचा वयोगट कोणता आहे?",
+        },
+        OCCUPATION_QUESTION: {
+            en: "What is your occupation?",
+            hi: "आपका व्यवसाय क्या है?",
+            mr: "तुमचा व्यवसाय काय आहे?",
+        },
+        INCOME_QUESTION: {
+            en: "What is your income range?",
+            hi: "आपकी आय सीमा क्या है?",
+            mr: "तुमचे उत्पन्न किती आहे?",
+        },
+        CONCERN_QUESTION: {
+            en: "What do you want to protect?",
+            hi: "आप क्या सुरक्षित करना चाहते हैं?",
+            mr: "तुम्हाला काय सुरक्षित करायचे आहे?",
+        },
+        RECOMMEND_RESULT: {
+            en: "Based on your answers, these plans are suitable:",
+            hi: "आपके उत्तरों के आधार पर ये योजनाएं उपयुक्त हैं:",
+            mr: "तुमच्या उत्तरांनुसार या योजना योग्य आहेत:",
+        },
+        CLAIM_HELP: {
+            en: "To claim insurance, visit an empaneled hospital with ID proof.",
+            hi: "क्लेम करने के लिए पहचान पत्र के साथ अधिकृत अस्पताल जाएं।",
+            mr: "क्लेम करण्यासाठी ओळखपत्रासह अधिकृत रुग्णालयात जा.",
+        },
+        GENERAL: {
+            en: "I can help you with insurance recommendations and claims.",
+            hi: "मैं बीमा सुझाव और क्लेम में आपकी मदद कर सकता हूँ।",
+            mr: "मी विमा शिफारसी आणि क्लेममध्ये मदत करू शकतो.",
+        },
+        INVALID_AGE: {
+            en: "Please select a valid age group.",
+            hi: "कृपया सही आयु समूह चुनें।",
+            mr: "कृपया योग्य वयोगट निवडा.",
+        },
+        INVALID_OCCUPATION: {
+            en: "Please select a valid occupation.",
+            hi: "कृपया सही व्यवसाय चुनें।",
+            mr: "कृपया योग्य व्यवसाय निवडा.",
+        },
+        INVALID_INCOME: {
+            en: "Please select a valid income range.",
+            hi: "कृपया सही आय सीमा चुनें।",
+            mr: "कृपया योग्य उत्पन्न श्रेणी निवडा.",
+        },
+        INVALID_CONCERN: {
+            en: "Please select a valid option.",
+            hi: "कृपया सही विकल्प चुनें।",
+            mr: "कृपया योग्य पर्याय निवडा.",
+        },
+        INVALID_OPTION: {
+            en: "Invalid selection. Please choose a valid option.",
+            hi: "अमान्य चयन। कृपया सही विकल्प चुनें।",
+            mr: "अवैध निवड. कृपया योग्य पर्याय निवडा.",
+        },
+    };
+
+    return messages[key]?.[lang] || messages[key]?.en;
+};
