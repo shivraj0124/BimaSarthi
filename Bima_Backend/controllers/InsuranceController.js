@@ -1,31 +1,100 @@
 const Insurance = require("../models/Insurance");
 
-
 const insuranceCache = new Map();
-const CACHE_DURATION = 1000 * 60 * 30; 
-
+const CACHE_DURATION = 1000 * 60 * 30;
 
 exports.createInsurance = async (req, res) => {
   try {
-    const insurance = new Insurance(req.body);
-    await insurance.save();
+    const {
+      name,
+      type,
+      category,
+      shortDescription,
+      detailedInformation,
+      documentsRequired,
+
+      // AI
+      knowledgeBase,
+
+      // Recommendation
+      recommendationRules,
+
+      // Search
+      searchText,
+      tags,
+
+      // Metadata
+      premium,
+      coverageAmount,
+      imageUrl,
+      insuranceLink,
+      source,
+      sourceLastUpdated,
+      status,
+    } = req.body;
+
+    if (!name || !type || !category) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, type and category are required.",
+      });
+    }
+
+    const existingInsurance = await Insurance.findOne({
+      "name.en": {
+        $regex: new RegExp(`^${name.en}$`, "i"),
+      },
+    });
+
+    if (existingInsurance) {
+      return res.status(409).json({
+        success: false,
+        message: "Insurance already exists.",
+      });
+    }
+
+    const insurance = await Insurance.create({
+      name,
+      type,
+      category,
+      shortDescription,
+      detailedInformation,
+      documentsRequired,
+
+      knowledgeBase,
+
+      recommendationRules,
+
+      searchText,
+      tags,
+
+      premium,
+      coverageAmount,
+      imageUrl,
+      insuranceLink,
+      source,
+      sourceLastUpdated,
+      status,
+    });
+
     insuranceCache.clear();
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Insurance created successfully",
+      message: "Insurance created successfully.",
       data: insurance,
     });
+
   } catch (error) {
-    res.status(500).json({
+    console.error(error);
+
+    return res.status(500).json({
       success: false,
-      message: "Error creating insurance",
+      message: "Error creating insurance.",
       error: error.message,
     });
   }
 };
-
-
 /* ---------------- GET ALL INSURANCE ---------------- */
 // exports.getAllInsurance = async (req, res) => {
 //   try {
@@ -151,7 +220,7 @@ exports.getAllInsurance = async (req, res) => {
 
     if (search) {
       insuranceList = insuranceList.filter((item) =>
-        item.name?.[lang]?.toLowerCase().includes(search.toLowerCase())
+        item.name?.[lang]?.toLowerCase().includes(search.toLowerCase()),
       );
     }
 
@@ -170,6 +239,7 @@ exports.getAllInsurance = async (req, res) => {
       premium: item.premium,
       coverageAmount: item.coverageAmount,
       imageUrl: item.imageUrl,
+      insuranceLink: item.insuranceLink,
 
       detailedInformation: {
         overview:
@@ -186,14 +256,12 @@ exports.getAllInsurance = async (req, res) => {
 
         benefits:
           item.detailedInformation?.benefits?.map(
-            (benefit) => benefit?.[lang] || benefit?.en
+            (benefit) => benefit?.[lang] || benefit?.en,
           ) || [],
       },
 
       documentsRequired:
-        item.documentsRequired?.map(
-          (doc) => doc?.[lang] || doc?.en
-        ) || [],
+        item.documentsRequired?.map((doc) => doc?.[lang] || doc?.en) || [],
     }));
 
     /* ================================
@@ -213,7 +281,6 @@ exports.getAllInsurance = async (req, res) => {
       count: formattedData.length,
       data: formattedData,
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -222,7 +289,6 @@ exports.getAllInsurance = async (req, res) => {
     });
   }
 };
-
 
 exports.getInsuranceById = async (req, res) => {
   try {
@@ -245,13 +311,9 @@ exports.getInsuranceById = async (req, res) => {
       detailedInformation: {
         overview: insurance.detailedInformation?.overview?.[lang],
         benefits:
-          insurance.detailedInformation?.benefits?.map(
-            (b) => b[lang]
-          ) || [],
-        eligibility:
-          insurance.detailedInformation?.eligibility?.[lang],
-        claimProcess:
-          insurance.detailedInformation?.claimProcess?.[lang],
+          insurance.detailedInformation?.benefits?.map((b) => b[lang]) || [],
+        eligibility: insurance.detailedInformation?.eligibility?.[lang],
+        claimProcess: insurance.detailedInformation?.claimProcess?.[lang],
       },
       type: insurance.type,
       category: insurance.category,
@@ -276,14 +338,11 @@ exports.getInsuranceById = async (req, res) => {
   }
 };
 
-
 exports.updateInsurance = async (req, res) => {
   try {
-    const updated = await Insurance.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
+    const updated = await Insurance.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+    });
 
     if (!updated) {
       return res.status(404).json({
@@ -306,8 +365,6 @@ exports.updateInsurance = async (req, res) => {
   }
 };
 
-
-
 exports.deleteInsurance = async (req, res) => {
   try {
     await Insurance.findByIdAndDelete(req.params.id);
@@ -324,4 +381,3 @@ exports.deleteInsurance = async (req, res) => {
     });
   }
 };
-

@@ -36,11 +36,11 @@ const LearnScreen = () => {
     { id: "Private", name: t("Private",language), icon: "briefcase-outline" },
   ];
   const handleCategoryPress = (categoryId) => {
-    if(categoryId === "fraud"){
-      navigation.navigate("FraudSc")
-    }else if(categoryId === "claim"){
-      navigation.navigate("ClaimSc")
-    }
+    // if(categoryId === "fraud"){
+    //   navigation.navigate("FraudSc")
+    // }else if(categoryId === "claim"){
+    //   navigation.navigate("ClaimSc")
+    // }
     setSelectedCategory(categoryId);
   }
   useEffect(() => {
@@ -50,7 +50,7 @@ const LearnScreen = () => {
   const fetchLearnData = async () => {
     try {
       setLoading(true);
-      console.log("Fetching learn data for language:", language);
+      // console.log("Fetching learn data for language:", language);
       const response = await axios.get(
         `${process.env.EXPO_PUBLIC_API_URL}/learn?lang=${language}`
       );
@@ -58,16 +58,16 @@ const LearnScreen = () => {
       if (response.data.success) {
         setLearnData(response.data.data);
       }
-      console.log("Learn Data Fetched:", response.data.data.length, "items");
+      // console.log("Learn Data Fetched:", response.data.data.length, "items");
     } catch (error) {
-      console.log("Learn Fetch Error:", error.message);
+      // console.log("Learn Fetch Error:", error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const filteredData = learnData.filter((item) => {
-    console.log("Filtering item:", item.category);
+    // console.log("Filtering item:", item.category);
 
     const matchesCategory =
       selectedCategory === "ALL" || item.category === selectedCategory;
@@ -298,7 +298,7 @@ const LearnScreen = () => {
                     </View>
                   </View>
 
-                  {/* Duration Badge (for videos) */}
+                  {/* Duration Badge (for videos)
                   {item.contentType === "video" && item.duration && (
                     <View className="absolute bottom-3 left-3">
                       <View
@@ -311,7 +311,7 @@ const LearnScreen = () => {
                         </Text>
                       </View>
                     </View>
-                  )}
+                  )} */}
                 </View>
 
                 {/* Content */}

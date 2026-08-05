@@ -52,7 +52,7 @@ export default function LoginScreen() {
         router.replace("/(tabs)/home");
       }
     } catch (error) {
-      console.log("Login Error:", error.response?.data || error.message);
+      // console.log("Login Error:", error.response?.data || error.message);
 
       if (error.response?.status === 404) {
         Alert.alert("Error", "User not found");

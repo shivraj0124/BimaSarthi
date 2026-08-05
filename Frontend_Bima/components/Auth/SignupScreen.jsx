@@ -21,7 +21,8 @@ export default function SignupScreen() {
 
     try {
       setLoading(true);
-      console.log(process.env.EXPO_PUBLIC_API_URL)
+      // console.log(process.env.EXPO_PUBLIC_API_URL)
+      // console.log("data: ");
       const response = await axios.post(
         `${process.env.EXPO_PUBLIC_API_URL}/auth/signup`,
         {
@@ -31,7 +32,7 @@ export default function SignupScreen() {
         }
       );
 
-      console.log("data: " , response?.data);
+      // console.log("data: " , response?.data);
       const data = response?.data;
       
       if (data?.success) {
@@ -47,7 +48,7 @@ export default function SignupScreen() {
         router.replace("/(tabs)/home");
       }
     } catch (error) {
-      console.log("Signup Error:", error.response?.data || error.message);
+      // console.log("Signup Error:", error.response?.data || error.message);
 
       if (error.response?.status === 404) {
         Alert.alert("Error", "User not found");

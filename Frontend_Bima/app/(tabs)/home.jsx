@@ -52,7 +52,7 @@ export default function HomeScreen() {
         setLearnContent(response.data.data);
       }
     } catch (error) {
-      console.log("Learn API Error:", error.message);
+      // console.log("Learn API Error:", error.message);
     } finally {
       setLoadingLearn(false);
     }

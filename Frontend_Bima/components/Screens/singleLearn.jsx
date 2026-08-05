@@ -15,7 +15,7 @@ const LearnDetail = () => {
   const { darkMode, language } = useApp();
 
   const item = route?.params?.item;
-  console.log("Learn Item:", item);
+  // console.log("Learn Item:", item);
   const speakInfo = (text) => {
     Speech.speak(text, {
       language:
@@ -147,8 +147,8 @@ const LearnDetail = () => {
               <Ionicons name="folder-outline" size={18} color="#10b981" />
               <Text className="ml-2 text-xl text-green-600 font-semibold">
                 {
-                  t(`${item.category}`, language).charAt(0).toUpperCase() +
-                  t(`${item.category}`, language).slice(1)
+                  t(`${item.category}`, language)?.charAt(0).toUpperCase() +
+                  t(`${item.category}`, language)?.slice(1)
                 }
 
               </Text>

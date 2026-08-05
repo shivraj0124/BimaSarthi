@@ -26,8 +26,6 @@ export default function SplashScreen() {
   }
   useEffect(() => {
     loadUser()
-    console.log("Is Logged In:", isLoggedIn);
-    console.log("Is check:", checkUser);
 
     const timer = setTimeout(() => {
       router.replace("/language");

@@ -15,7 +15,8 @@ const signup = async (req, res) => {
       preferredLanguage,
       location,
     } = req.body;
-    console.log(req.body);
+    
+    console.log("hello world",req.body);
 
     // Check existing user
     const existingUser = await User.findOne({ mobileNumber });

@@ -48,10 +48,8 @@ export default function ChatBotScreen() {
                     language,
                 }
             );
-            console.log(response)
-
             const { reply, options, recommendations } = response.data;
-            console.log("Backend Response:", reply);
+           
             // Add bot replyA
             if (reply) {
                 setMessages((prev) => [
@@ -97,13 +95,10 @@ export default function ChatBotScreen() {
                 flatListRef.current?.scrollToEnd({ animated: true });
             }, 200);
         } catch (error) {
-            console.log(error.response?.data || error.message);
+            // console.log(error.response?.data || error.message);
+            
         }
     };
-
-    /* =============================
-       HANDLE BUTTON CLICK
-    ============================= */
 
     const handleActionPress = async (label, action) => {
         // Add as user message

@@ -9,6 +9,7 @@ import {
   View,
   Image,
   ActivityIndicator,
+  Linking
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useApp } from "../../contexts/AppContext";
@@ -73,13 +74,13 @@ const InsuranceScreen = () => {
 
       if (response.data.success) {
         setInsurancePlans(response.data.data);
-        console.log("Fetched insurance plans:", response.data.data);
+        // console.log("Fetched insurance plans:", response.data.data);
       }
     } catch (error) {
-      console.log(
-        "Error fetching insurance:",
-        error.response?.data || error.message
-      );
+      // console.log(
+      //   "Error fetching insurance:",
+      //   error.response?.data || error.message
+      // );
     } finally {
       setLoading(false);
     }
@@ -205,16 +206,35 @@ const InsuranceScreen = () => {
 
               {/* Info Row */}
               <View className="flex-row items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                {/* Premium */}
+                {/* Premium
                 {plan.premium && (
                   <View className="flex-row items-center">
                     <Ionicons name="cash-outline" size={16} color="#10b981" />
                     <Text className="ml-1 text-green-600 font-semibold text-sm">
-                      {/* {plan.premium} */}
+                      
                     </Text>
                   </View>
-                )}
-
+                )} */}
+                
+                <TouchableOpacity
+  onPress={() => {
+    if (plan?.insuranceLink) {
+      Linking.openURL(plan.insuranceLink);
+    }
+  }}
+>
+  <View
+                  className="rounded-full px-3 py-1.5 flex-row items-center"
+                  style={{
+                    backgroundColor:"rgba(16, 185, 129, 0.95)",
+                  }}
+                >
+    {/* <Ionicons name="cash-outline" size={16} color="#10b981" /> */}
+    <Text className="ml-1 text-white font-semibold text-xl">
+      {t("claim",language)}
+    </Text>
+  </View>
+</TouchableOpacity>
                 {/* View Details */}
                 <View className="flex-row items-center">
                   <Text className="text-green-600 font-semibold text-lg">

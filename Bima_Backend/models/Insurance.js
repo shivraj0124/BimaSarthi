@@ -2,7 +2,8 @@ const mongoose = require("mongoose");
 
 const InsuranceSchema = new mongoose.Schema(
   {
-    /* ---------- Basic Information ---------- */
+    /* ---------------- Basic Information ---------------- */
+
     name: {
       en: { type: String, required: true },
       hi: { type: String },
@@ -11,7 +12,7 @@ const InsuranceSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["Health", "Life", "Crop","Accident", "Other"],
+      enum: ["Health", "Life", "Crop", "Accident", "Other"],
       required: true,
     },
 
@@ -21,14 +22,14 @@ const InsuranceSchema = new mongoose.Schema(
       required: true,
     },
 
-    /* ---------- Short Description ---------- */
+    /* ---------------- UI Content ---------------- */
+
     shortDescription: {
-      en: { type: String },
-      hi: { type: String },
-      mr: { type: String },
+      en: String,
+      hi: String,
+      mr: String,
     },
 
-    /* ---------- Detailed Structured Information ---------- */
     detailedInformation: {
       overview: {
         en: String,
@@ -57,16 +58,6 @@ const InsuranceSchema = new mongoose.Schema(
       },
     },
 
-    /* ---------- Financial Details ---------- */
-    premium: {
-      type: String, // Example: "₹330 per year"
-    },
-
-    coverageAmount: {
-      type: String, // Example: "₹5,00,000"
-    },
-
-    /* ---------- Required Documents ---------- */
     documentsRequired: [
       {
         en: String,
@@ -75,20 +66,100 @@ const InsuranceSchema = new mongoose.Schema(
       },
     ],
 
-    /* ---------- Image ---------- */
-    imageUrl: {
-      type: String, // store cloud URL (Cloudinary / S3)
+    /* ---------------- AI Knowledge Base ---------------- */
+
+    knowledgeBase: {
+      summary: String,
+
+      overview: String,
+
+      benefits: [String],
+
+      eligibility: String,
+
+      claimProcess: String,
+
+      documentsRequired: [String],
+
+      exclusions: String,
+
+      renewal: String,
+
+      faqs: [
+        {
+          question: String,
+          answer: String,
+        },
+      ],
+
+      keywords: [String],
+
+      aliases: [String],
+
+      combinedText: String,
+
+      embedding: {
+        type: [Number],
+        default: [],
+      },
     },
 
-    /* ---------- Status ---------- */
-    isActive: {
-      type: Boolean,
-      default: true,
+    /* ---------------- Recommendation ---------------- */
+
+    recommendationRules: {
+      ageGroups: [String],
+
+      occupations: [String],
+
+      incomeRanges: [String],
+
+      priority: {
+        type: Number,
+        default: 1,
+      },
+    },
+
+    /* ---------------- Search ---------------- */
+
+    searchText: {
+      type: String,
+      default: "",
+    },
+
+    tags: [String],
+
+    /* ---------------- Metadata ---------------- */
+
+    premium: String,
+
+    coverageAmount: String,
+
+    imageUrl: String,
+
+    insuranceLink: String,
+
+    source: String,
+
+    sourceLastUpdated: Date,
+
+    status: {
+      type: String,
+      enum: ["ACTIVE", "INACTIVE"],
+      default: "ACTIVE",
     },
   },
   {
-    timestamps: true, // automatically adds createdAt & updatedAt
+    timestamps: true,
   }
 );
+
+/* ---------------- Indexes ---------------- */
+
+InsuranceSchema.index({
+  searchText: "text",
+  "name.en": "text",
+  "knowledgeBase.keywords": "text",
+  "knowledgeBase.aliases": "text",
+});
 
 module.exports = mongoose.model("Insurance", InsuranceSchema);

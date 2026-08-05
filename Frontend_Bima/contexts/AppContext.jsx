@@ -21,7 +21,7 @@ export const AppProvider = ({ children }) => {
       const savedLang = await AsyncStorage.getItem("APP_LANG");
       const savedUser = await AsyncStorage.getItem("user");
       setIsLoggedIn(savedUser ? true : false);
-      console.log("Saved User:", savedUser, isLoggedIn);
+      // console.log("Saved User:", savedUser, isLoggedIn);
       if (savedTheme) {
         setDarkMode(savedTheme === "dark");
       }
@@ -33,7 +33,7 @@ export const AppProvider = ({ children }) => {
         setUser(JSON.parse(savedUser));
       }
     } catch (error) {
-      console.log("Error loading preferences:", error);
+      // console.log("Error loading preferences:", error);
     }
   };
 

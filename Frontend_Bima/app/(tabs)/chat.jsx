@@ -8,6 +8,7 @@ import {
     KeyboardAvoidingView,
     Platform,
     Keyboard,
+    Linking
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -17,6 +18,9 @@ import { useNavigation } from "@react-navigation/native";
 import { t } from "../../localization/translate";
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
+import { Animated } from "react-native";
+import { AudioModule, RecordingPresets, useAudioRecorder } from "expo-audio";
+import {ThinkingBubble} from "../../components/Screens/ThinkingBubble";
 
 export default function ChatBotScreen() {
     const { darkMode, language, user } = useApp();
@@ -25,24 +29,115 @@ export default function ChatBotScreen() {
 
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
-    const [keyboardHeight, setKeyboardHeight] = useState(0);
-    const speakInfo = (text) => {
-        Speech.speak(text, {
-            language:
-                language === "hi"
-                    ? "hi-IN"
-                    : language === "en"
-                        ? "en-US"
-                        : language === "mr"
-                            ? "mr-IN"
-                            : "en-US",
 
-            pitch: 1,
-            rate: 1,
-        });
-    };
+    const [sessionId, setSessionId] = useState(null);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+
+    const [isRecording, setIsRecording] = useState(false);
+    const [speakingMessageId, setSpeakingMessageId] = useState(null);
+
+const speakInfo = (id, text) => {
+  setSpeakingMessageId(id);
+
+  Speech.speak(text, {
+    language:
+      language === "hi"
+        ? "hi-IN"
+        : language === "mr"
+        ? "mr-IN"
+        : "en-US",
+
+    onDone: () => setSpeakingMessageId(null),
+    onStopped: () => setSpeakingMessageId(null),
+    onError: () => setSpeakingMessageId(null),
+  });
+};
+
+const stopSpeaking = async () => {
+  await Speech.stop();
+  setSpeakingMessageId(null);
+};
+    const startRecording = async () => {
+  try {
+    const permission = await AudioModule.requestRecordingPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert("Permission Required", "Microphone permission is required.");
+      return;
+    }
+    console.log(process.env.EXPO_PUBLIC_API_URL)
+
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+
+    setIsRecording(true);
+  } catch (err) {
+    console.log(err);
+  }
+};
+const stopRecording = async () => {
+  try {
+    await recorder.stop();
+
+    setIsRecording(false);
+
+    const uri = recorder.uri;
+
+    console.log("Audio URI:", uri);
+
+    uploadAudio(uri);
+
+  } catch (err) {
+    console.log(err);
+  }
+};
+const uploadAudio = async (uri) => {
+  try {
+    const formData = new FormData();
+
+    formData.append("audio", {
+      uri,
+      name: "voice.m4a",
+      type: "audio/m4a",
+    });
+
+    formData.append("language", language);
+
+    const response = await axios.post(
+      `${process.env.EXPO_PUBLIC_API_URL}/speech/transcribe`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    const transcript = response.data.transcript;
+
+console.log("Transcript:", transcript);
+
+// Show voice message in chat
+setMessages((prev) => [
+  ...prev,
+  {
+    id: Date.now(),
+    text: transcript,
+    sender: "user",
+    isVoice: true,
+  },
+]);
+
+// Send to chatbot
+await sendToBackend("FREE_TEXT", transcript);
+
+  } catch (err) {
+    console.log(err);
+  }
+};
     useEffect(() => {
-        console.log("Current User in ChatBotScreen:", user?._id);
+        // console.log("Current User in ChatBotScreen:", user?._id);
         setMessages([
             {
                 id: Date.now(),
@@ -73,6 +168,30 @@ export default function ChatBotScreen() {
             keyboardWillHide.remove();
         };
     }, []);
+    
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+
+useEffect(() => {
+  if (!isRecording) {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 0.85,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 700,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  } else {
+    pulseAnim.stopAnimation();
+    pulseAnim.setValue(1);
+  }
+}, [isRecording]);
 
     const mainActions = [
         { label: t("getRecommendation", language), action: "GET_RECOMMENDATION", icon: "star-outline" },
@@ -84,24 +203,51 @@ export default function ChatBotScreen() {
 
     const sendToBackend = async (action, value = "") => {
         try {
+            
+            setMessages((prev) => [
+      ...prev,
+      {
+        id: "thinking",
+        type: "thinking",
+      },
+    ]);
             const response = await axios.post(
-                `${process.env.EXPO_PUBLIC_API_URL}/agent/chat`,
-                {
-                    userId: user?._id,
-                    action,
-                    value,
-                    language,
-                }
-            );
+    `${process.env.EXPO_PUBLIC_API_URL}/agent/chat`,
+    {
+        userId: user?._id,
+        sessionId,
+        action,
+        value,
+        language,
+    }
+);
 
-            const { reply, options, recommendations, redirect } = response.data;
+            const {
+    reply,
+    options,
+    recommendations,
+    redirect,
+    sessionId: returnedSessionId,
+} = response.data;
+
+if (returnedSessionId) {
+    setSessionId(returnedSessionId);
+}
 
             if (reply) {
-                setMessages((prev) => [
-                    ...prev,
-                    { id: Date.now(), text: reply, sender: "bot" },
-                ]);
-            }
+    setMessages((prev) =>
+        prev.filter((msg) => msg.type !== "thinking")
+    );
+
+    setMessages((prev) => [
+        ...prev,
+        {
+            id: Date.now(),
+            text: reply,
+            sender: "bot",
+        },
+    ]);
+}
 
             if (options) {
                 setMessages((prev) => [
@@ -125,7 +271,6 @@ export default function ChatBotScreen() {
                 ]);
             }
 
-            // 🔥 HANDLE REDIRECT BUTTON
             if (redirect) {
                 setMessages((prev) => [
                     ...prev,
@@ -150,13 +295,12 @@ export default function ChatBotScreen() {
                 flatListRef.current?.scrollToEnd({ animated: true });
             }, 200);
         } catch (error) {
-            console.log(error.response?.data || error.message);
+            // console.log(error.response?.data || error.message);
+            setMessages((prev) =>
+        prev.filter((msg) => msg.type !== "thinking")
+    );
         }
     };
-
-    /* =============================
-       HANDLE BUTTON CLICK
-    ============================= */
 
     const handleActionPress = async (label, action) => {
         setMessages((prev) => [
@@ -185,13 +329,9 @@ export default function ChatBotScreen() {
         ]);
 
         setInput("");
-
+        console.log("Voice input ::",input)
         await sendToBackend("FREE_TEXT", input);
     };
-
-    /* =============================
-       RENDER CHAT ITEMS
-    ============================= */
 
     const renderItem = ({ item }) => {
         // USER / BOT MESSAGE
@@ -228,7 +368,7 @@ export default function ChatBotScreen() {
                                 className="absolute inset-0 rounded-3xl"
                             />
                         ) : null}
-                        <View className="flex-col items-start justify-between ">
+                        <View className="flex items-start justify-between ">
                             <Text
                                 className={`text-lg leading-6 ${isUser
                                     ? "text-white"
@@ -239,10 +379,44 @@ export default function ChatBotScreen() {
                             >
                                 {item.text}
                             </Text>
-                            <TouchableOpacity onPress={() => speakInfo(item.text)} className="ml-2 p-1 w-max rounded-full bg-green-100">
-                                    <Feather name="volume-2" size={24} color="#059669" />
-                                </TouchableOpacity>
-                        </View>
+                            {/* <View className="flex-row items-center">
+                            {item.sender === "user" && item.isVoice && (
+  <View className="self-start bg-emerald-100 px-2 py-1 rounded-full mt-2">
+    <View className="flex-row items-center">
+      <Ionicons
+        name="mic"
+        size={12}
+        color="#059669"
+      />
+    </View>
+  </View>
+// )} */}
+{/* //                             <TouchableOpacity onPress={() => speakInfo(item.text)} className="ml-2 p-1 w-max rounded-full bg-green-100">
+//                                     <Feather name="volume-2" size={24} color="#059669" />
+//                                 </TouchableOpacity> */}
+
+<TouchableOpacity
+  onPress={() => {
+  if (speakingMessageId === item.id) {
+    stopSpeaking();
+  } else {
+    speakInfo(item.id, item.text);
+  }
+}}
+  className="ml-2 p-1 rounded-full bg-green-100"
+>
+  <Feather
+  name={
+    speakingMessageId === item.id
+      ? "square"
+      : "volume-2"
+  }
+  size={22}
+  color="#059669"
+/>
+</TouchableOpacity>
+                                </View>
+                        {/* </View> */}
                     </View>
                     {/* Timestamp */}
                     <Text
@@ -254,6 +428,30 @@ export default function ChatBotScreen() {
                 </View>
             );
         }
+
+       if (item.type === "thinking") {
+  return (
+    <View className="items-start mb-5">
+      <View
+        className={`px-4 py-3 rounded-2xl ${
+          darkMode ? "bg-gray-800" : "bg-gray-100"
+        }`}
+      >
+        <Text
+          className={`font-medium ${
+            darkMode ? "text-white" : "text-gray-800"
+          }`}
+        >
+          🤖 Thinking...
+        </Text>
+
+        <View className="flex-row mt-2">
+          <Text className="text-gray-400 text-lg">● ● ●</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
         // SURVEY OPTIONS
         if (item.type === "options") {
@@ -305,59 +503,86 @@ export default function ChatBotScreen() {
         if (item.type === "recommendations") {
             return (
                 <View className="my-3">
-                    <Text
-                        className={`text-md mb-3 ${darkMode ? "text-gray-400" : "text-gray-600"
-                            }`}
-                    >
-                        {t("recommendedForYou", language)}
-                    </Text>
-                    {item.data.map((rec) => (
-                        <View
-                            key={rec.id}
-                            className={`rounded-3xl p-5 mb-3 ${darkMode ? "bg-gray-800" : "bg-white"
-                                }`}
-                            style={{
-                                shadowColor: "#000",
-                                shadowOffset: { width: 0, height: 4 },
-                                shadowOpacity: 0.1,
-                                shadowRadius: 8,
-                                elevation: 5,
-                            }}
-                        >
-                            <View className="flex-row items-start justify-between mb-2">
-                                <Text
-                                    className={`text-xl font-bold flex-1 ${darkMode ? "text-white" : "text-gray-900"
-                                        }`}
-                                >
-                                    {rec.name}
-                                </Text>
-                                {/* <Ionicons name="information-circle" size={24} color="#10b981" /> */}
-                                <TouchableOpacity onPress={() => speakInfo(rec.name)} className="ml-2 p-1 w-max rounded-full bg-green-100">
-                                    <Feather name="volume-2" size={24} color="#059669" />
-                                </TouchableOpacity>
-                            </View>
+  <Text
+    className={`text-md mb-3 ${
+      darkMode ? "text-gray-400" : "text-gray-600"
+    }`}
+  >
+    {t("recommendedForYou", language)}
+  </Text>
 
-                            <View className="flex-col items-start justify-between">
-                                <Text
-                                    className={`text-lg leading-6 ${darkMode ? "text-gray-400" : "text-gray-600"
-                                        }`}
-                                >
-                                    {rec.description}
-                                </Text>
-                                <TouchableOpacity onPress={() => speakInfo(rec.description)} className="ml-2 p-1 rounded-full bg-green-100 w-max">
-                                    <Feather name="volume-2" size={24} color="#059669" />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    ))}
-                </View>
+  {item.data.map((rec) => (
+    <View
+      key={rec.id}
+      className={`rounded-3xl p-5 mb-3 ${
+        darkMode ? "bg-gray-800" : "bg-white"
+      }`}
+      style={{
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 5,
+      }}
+    >
+      {/* ── Name row ── */}
+      <View className="flex-row items-center justify-between mb-2">
+        <Text
+          className={`text-xl font-bold flex-1 ${
+            darkMode ? "text-white" : "text-gray-900"
+          }`}
+        >
+          {rec.name}
+        </Text>
+        <TouchableOpacity
+          onPress={() => speakInfo(rec.name)}
+          className="ml-2 p-1 rounded-full bg-green-100"
+        >
+          <Feather name="volume-2" size={24} color="#059669" />
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Description row ── */}
+      <View className="flex-row items-start mb-4">
+        <Text
+          className={`text-lg leading-6 flex-1 mr-2 ${
+            darkMode ? "text-gray-400" : "text-gray-600"
+          }`}
+        >
+          {rec.description}
+        </Text>
+        <TouchableOpacity
+          onPress={() => speakInfo(rec.description)}
+          className="p-1 rounded-full bg-green-100"
+        >
+          <Feather name="volume-2" size={24} color="#059669" />
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Claim button ── */}
+      <TouchableOpacity
+        onPress={() => rec?.insuranceLink && Linking.openURL(rec.insuranceLink)}
+        activeOpacity={0.8}
+      >
+        <View
+          className="rounded-full px-4 py-2 flex-row items-center justify-center self-start"
+          style={{ backgroundColor: "rgba(16, 185, 129, 0.95)" }}
+        >
+          <Text className="text-white font-semibold text-base">
+            {t("claim", language)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    </View>
+  ))}
+</View>
             );
         }
 
         // MAIN ACTION BUTTONS
         if (item.type === "mainActions") {
             return (
-                <View className="my-3">
+                <View className="my-3 mb-6">
                     <Text
                         className={`text-md mb-3 ${darkMode ? "text-gray-400" : "text-gray-600"
                             }`}
@@ -434,7 +659,23 @@ export default function ChatBotScreen() {
 
         return null;
     };
+    const VoiceWave = () => {
+    const bars = [18, 30, 42, 55, 42, 30, 18];
 
+  return (
+    <View className="flex-row items-end justify-center mt-5">
+      {bars.map((height, index) => (
+        <View
+          key={index}
+          className="w-1.5 mx-[2px] rounded-full bg-white"
+          style={{ height }}
+        />
+      ))}
+    </View>
+  );
+   };
+
+  
     return (
         <SafeAreaView
             edges={["top"]}
@@ -516,6 +757,56 @@ export default function ChatBotScreen() {
                             maxLength={500}
                             onSubmitEditing={handleFreeText}
                         />
+                      <Animated.View
+  className="absolute bottom-0 right-0 z-50"
+  style={{
+    transform: [{ scale: pulseAnim }],
+  }}
+>
+  <View className="w-max h-max p-1 rounded-full bg-green-400 items-center justify-center">
+    <TouchableOpacity
+      onPress={isRecording ? stopRecording : startRecording}
+      className={`w-16 h-16 rounded-full items-center justify-center ${
+        isRecording ? "bg-red-500" : "bg-emerald-600"
+      }`}
+      style={{
+        elevation: 10,
+        shadowColor: "#10B981",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+      }}
+    >
+      <Ionicons
+        name={isRecording ? "stop-circle" : "mic"}
+        size={30}
+        color="white"
+      />
+    </TouchableOpacity>
+  </View>
+</Animated.View>
+{isRecording && (
+  <View className="absolute bottom-24 left-5 right-5 z-50">
+    <View className="bg-emerald-500 rounded-3xl px-6 py-5 items-center shadow-2xl">
+
+      <View className="w-14 h-14 rounded-full bg-white/20 items-center justify-center">
+        <Ionicons name="mic" size={30} color="white" />
+      </View>
+
+      <Text className="text-white text-lg font-bold mt-3">
+        Listening...
+      </Text>
+
+      <VoiceWave />
+
+      <Text className="text-emerald-100 mt-3 text-sm">
+        Release to send
+      </Text>
+
+    </View>
+  </View>
+)}
+                    
                     </View>
 
                     <TouchableOpacity

@@ -19,7 +19,7 @@ export default function ProfileScreen() {
       const res = await AsyncStorage.getItem("user")
       
       data = res
-      console.log(user.id)
+      // console.log(user.id)
     } catch (err) {
 
     }
@@ -51,7 +51,7 @@ export default function ProfileScreen() {
         );
       }
     } catch (error) {
-      console.error("Fetch user failed:", error.response?.data || error.message);
+      // console.error("Fetch user failed:", error.response?.data || error.message);
     }
   };
 
@@ -72,7 +72,7 @@ export default function ProfileScreen() {
       saveUser({});
       router.replace('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      // console.error('Logout failed:', error);
     }
   };
 

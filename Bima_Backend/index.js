@@ -10,6 +10,8 @@ const authRoutes = require("./routes/Authentication");
 const insuranceRoutes = require("./routes/Insurance");
 const learnRoutes = require("./routes/Learn");
 const agentRoutes = require("./routes/AgentRoutes");
+const chatRoutes = require("./routes/ChatRoutes");
+const speechRoutes = require("./routes/speechRoutes");
 
 
 
@@ -37,7 +39,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/insurance", insuranceRoutes);
 app.use("/api/learn", learnRoutes);
 app.use("/api/agent", agentRoutes);
-
+app.use("/api/chat", chatRoutes);
+app.use("/api/speech", speechRoutes);
 // Global error handler (optional but good practice)
 app.use((err, req, res, next) => {
   console.error(err.stack);
