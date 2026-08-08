@@ -95,96 +95,25 @@ exports.createInsurance = async (req, res) => {
     });
   }
 };
-/* ---------------- GET ALL INSURANCE ---------------- */
-// exports.getAllInsurance = async (req, res) => {
-//   try {
-//     const { category, type, search, lang = "en" } = req.query;
 
-//     let filter = { isActive: true };
-
-//     if (category) filter.category = category;
-//     if (type) filter.type = type;
-
-//     let insuranceList = await Insurance.find(filter);
-
-//     // 🔍 Search (language-based)
-//     if (search) {
-//       insuranceList = insuranceList.filter((item) =>
-//         item.name?.[lang]?.toLowerCase().includes(search.toLowerCase())
-//       );
-//     }
-
-//     // 🌍 Format full structure by language
-//     const formattedData = insuranceList.map((item) => ({
-//       _id: item._id,
-//       name: item.name?.[lang] || item.name?.en,
-//       shortDescription:
-//         item.shortDescription?.[lang] || item.shortDescription?.en,
-
-//       type: item.type,
-//       category: item.category,
-//       premium: item.premium,
-//       coverageAmount: item.coverageAmount,
-//       imageUrl: item.imageUrl,
-
-//       detailedInformation: {
-//         overview:
-//           item.detailedInformation?.overview?.[lang] ||
-//           item.detailedInformation?.overview?.en,
-
-//         eligibility:
-//           item.detailedInformation?.eligibility?.[lang] ||
-//           item.detailedInformation?.eligibility?.en,
-
-//         claimProcess:
-//           item.detailedInformation?.claimProcess?.[lang] ||
-//           item.detailedInformation?.claimProcess?.en,
-
-//         benefits:
-//           item.detailedInformation?.benefits?.map((benefit) =>
-//             benefit?.[lang] || benefit?.en
-//           ) || [],
-//       },
-
-//       documentsRequired:
-//         item.documentsRequired?.map(
-//           (doc) => doc?.[lang] || doc?.en
-//         ) || [],
-//     }));
-
-//     res.status(200).json({
-//       success: true,
-//       count: formattedData.length,
-//       data: formattedData,   // ✅ FIXED
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: "Error fetching insurance",
-//       error: error.message,
-//     });
-//   }
-// };
-// 30 minutes
 
 exports.getAllInsurance = async (req, res) => {
   try {
     const { category, type, search, lang = "en" } = req.query;
 
-    /* ================================
-       CREATE UNIQUE CACHE KEY
-    ================================= */
+    const supportedLangs = ["en", "hi", "mr"];
+    const selectedLang = supportedLangs.includes(lang) ? lang : "en";
+
+    /* ---------------- CACHE KEY ---------------- */
 
     const cacheKey = JSON.stringify({
       category: category || "ALL",
       type: type || "ALL",
       search: search || "",
-      lang,
+      lang: selectedLang,
     });
 
-    /* ================================
-       RETURN FROM CACHE IF VALID
-    ================================= */
+    /* ---------------- RETURN FROM CACHE ---------------- */
 
     if (insuranceCache.has(cacheKey)) {
       const cached = insuranceCache.get(cacheKey);
@@ -198,75 +127,97 @@ exports.getAllInsurance = async (req, res) => {
           count: cached.data.length,
           data: cached.data,
         });
-      } else {
-        insuranceCache.delete(cacheKey);
       }
+
+      insuranceCache.delete(cacheKey);
     }
 
-    /* ================================
-       FETCH FROM DATABASE
-    ================================= */
+    /* ---------------- DATABASE FILTER ---------------- */
 
-    let filter = { isActive: true };
+    let filter = {
+      status: "ACTIVE",
+    };
 
     if (category) filter.category = category;
     if (type) filter.type = type;
 
-    let insuranceList = await Insurance.find(filter);
+    let insuranceList = await Insurance.find(filter).sort({ createdAt: -1 });
 
-    /* ================================
-       SEARCH (LANGUAGE BASED)
-    ================================= */
+    /* ---------------- SEARCH ---------------- */
 
     if (search) {
-      insuranceList = insuranceList.filter((item) =>
-        item.name?.[lang]?.toLowerCase().includes(search.toLowerCase()),
-      );
+      const searchLower = search.toLowerCase();
+
+      insuranceList = insuranceList.filter((item) => {
+        const nameMatch =
+          item.name?.en?.toLowerCase().includes(searchLower) ||
+          item.name?.hi?.toLowerCase().includes(searchLower) ||
+          item.name?.mr?.toLowerCase().includes(searchLower);
+
+        const keywordMatch = item.knowledgeBase?.keywords?.some((keyword) =>
+          keyword.toLowerCase().includes(searchLower)
+        );
+
+        const aliasMatch = item.knowledgeBase?.aliases?.some((alias) =>
+          alias.toLowerCase().includes(searchLower)
+        );
+
+        return nameMatch || keywordMatch || aliasMatch;
+      });
     }
 
-    /* ================================
-       FORMAT LANGUAGE RESPONSE
-    ================================= */
+    /* ---------------- FORMAT RESPONSE ---------------- */
 
     const formattedData = insuranceList.map((item) => ({
       _id: item._id,
-      name: item.name?.[lang] || item.name?.en,
+
+      name: item.name?.[selectedLang] || item.name?.en || "",
+
       shortDescription:
-        item.shortDescription?.[lang] || item.shortDescription?.en,
+        item.shortDescription?.[selectedLang] ||
+        item.shortDescription?.en ||
+        "",
 
       type: item.type,
       category: item.category,
-      premium: item.premium,
-      coverageAmount: item.coverageAmount,
-      imageUrl: item.imageUrl,
-      insuranceLink: item.insuranceLink,
+      premium: item.premium || "",
+      coverageAmount: item.coverageAmount || "",
+      imageUrl: item.imageUrl || "",
+      insuranceLink: item.insuranceLink || "",
 
       detailedInformation: {
         overview:
-          item.detailedInformation?.overview?.[lang] ||
-          item.detailedInformation?.overview?.en,
+          item.detailedInformation?.overview?.[selectedLang] ||
+          item.detailedInformation?.overview?.en ||
+          "",
 
         eligibility:
-          item.detailedInformation?.eligibility?.[lang] ||
-          item.detailedInformation?.eligibility?.en,
+          item.detailedInformation?.eligibility?.[selectedLang] ||
+          item.detailedInformation?.eligibility?.en ||
+          "",
 
         claimProcess:
-          item.detailedInformation?.claimProcess?.[lang] ||
-          item.detailedInformation?.claimProcess?.en,
+          item.detailedInformation?.claimProcess?.[selectedLang] ||
+          item.detailedInformation?.claimProcess?.en ||
+          "",
 
         benefits:
-          item.detailedInformation?.benefits?.map(
-            (benefit) => benefit?.[lang] || benefit?.en,
+          item.detailedInformation?.benefits?.map((benefit) =>
+            benefit?.[selectedLang] || benefit?.en || ""
           ) || [],
       },
 
       documentsRequired:
-        item.documentsRequired?.map((doc) => doc?.[lang] || doc?.en) || [],
+        item.documentsRequired?.map((doc) =>
+          doc?.[selectedLang] || doc?.en || ""
+        ) || [],
+
+      tags: item.tags || [],
+      status: item.status,
+      createdAt: item.createdAt,
     }));
 
-    /* ================================
-       SAVE TO CACHE
-    ================================= */
+    /* ---------------- SAVE TO CACHE ---------------- */
 
     insuranceCache.set(cacheKey, {
       data: formattedData,
@@ -282,6 +233,8 @@ exports.getAllInsurance = async (req, res) => {
       data: formattedData,
     });
   } catch (error) {
+    console.error("Get all insurance error:", error);
+
     return res.status(500).json({
       success: false,
       message: "Error fetching insurance",
@@ -290,10 +243,13 @@ exports.getAllInsurance = async (req, res) => {
   }
 };
 
+
 exports.getInsuranceById = async (req, res) => {
   try {
-    const { lang } = req.query;
-    console.log("Language preference:", lang);
+    const { lang = "en" } = req.query;
+
+    const supportedLangs = ["en", "hi", "mr"];
+    const selectedLang = supportedLangs.includes(lang) ? lang : "en";
 
     const insurance = await Insurance.findById(req.params.id);
 
@@ -306,31 +262,55 @@ exports.getInsuranceById = async (req, res) => {
 
     const formattedData = {
       _id: insurance._id,
-      name: insurance.name[lang],
-      shortDescription: insurance.shortDescription?.[lang],
+
+      name: insurance.name?.[selectedLang] || insurance.name?.en,
+
+      shortDescription:
+        insurance.shortDescription?.[selectedLang] ||
+        insurance.shortDescription?.en,
+
       detailedInformation: {
-        overview: insurance.detailedInformation?.overview?.[lang],
+        overview:
+          insurance.detailedInformation?.overview?.[selectedLang] ||
+          insurance.detailedInformation?.overview?.en,
+
         benefits:
-          insurance.detailedInformation?.benefits?.map((b) => b[lang]) || [],
-        eligibility: insurance.detailedInformation?.eligibility?.[lang],
-        claimProcess: insurance.detailedInformation?.claimProcess?.[lang],
+          insurance.detailedInformation?.benefits?.map((b) =>
+            b?.[selectedLang] || b?.en
+          ) || [],
+
+        eligibility:
+          insurance.detailedInformation?.eligibility?.[selectedLang] ||
+          insurance.detailedInformation?.eligibility?.en,
+
+        claimProcess:
+          insurance.detailedInformation?.claimProcess?.[selectedLang] ||
+          insurance.detailedInformation?.claimProcess?.en,
       },
+
+      documentsRequired:
+        insurance.documentsRequired?.map((doc) =>
+          doc?.[selectedLang] || doc?.en
+        ) || [],
+
       type: insurance.type,
       category: insurance.category,
       premium: insurance.premium,
       coverageAmount: insurance.coverageAmount,
-      documentsRequired:
-        insurance.documentsRequired?.map((doc) => doc[lang]) || [],
       imageUrl: insurance.imageUrl,
+      insuranceLink: insurance.insuranceLink,
+      status: insurance.status,
       createdAt: insurance.createdAt,
     };
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       data: formattedData,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Get insurance by ID error:", error);
+
+    return res.status(500).json({
       success: false,
       message: "Error fetching insurance details",
       error: error.message,
@@ -351,13 +331,17 @@ exports.updateInsurance = async (req, res) => {
       });
     }
 
-    res.status(200).json({
+    insuranceCache.clear();
+
+    return res.status(200).json({
       success: true,
       message: "Insurance updated successfully",
       data: updated,
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Update insurance error:", error);
+
+    return res.status(500).json({
       success: false,
       message: "Error updating insurance",
       error: error.message,
@@ -365,16 +349,28 @@ exports.updateInsurance = async (req, res) => {
   }
 };
 
+
 exports.deleteInsurance = async (req, res) => {
   try {
-    await Insurance.findByIdAndDelete(req.params.id);
+    const deleted = await Insurance.findByIdAndDelete(req.params.id);
 
-    res.status(200).json({
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Insurance not found",
+      });
+    }
+
+    insuranceCache.clear();
+
+    return res.status(200).json({
       success: true,
       message: "Insurance deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("Delete insurance error:", error);
+
+    return res.status(500).json({
       success: false,
       message: "Error deleting insurance",
       error: error.message,

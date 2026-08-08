@@ -322,22 +322,16 @@ ${value}
   }
 };
 
-/* =========================================
-   HANDLE GET_RECOMMENDATION (single entry point)
-========================================= */
 
 const handleGetRecommendation = async (user, value, language, res) => {
-  // ✅ Survey already fully completed → show recommendation directly
-  if (user.hasCompletedSurvey) {
+ if (user.hasCompletedSurvey) {
     return generateRecommendation(user, language, res);
   }
 
   const step = user.surveyProgress.currentStep;
 
-  // Step 0: No answer yet → show age question
-  // (This also handles the case where user came back without answering)
-  if (step === 0 && !value) {
-    // Ensure tempAnswers is clean when starting fresh
+ if (step === 0 && !value) {
+
     if (!user.surveyProgress.tempAnswers) {
       user.surveyProgress.tempAnswers = {};
       await user.save();
@@ -348,18 +342,14 @@ const handleGetRecommendation = async (user, value, language, res) => {
     });
   }
 
-  // Survey in progress → process the submitted value for the current step
   return continueSurvey(user, value, language, res);
 };
 
-/* =========================================
-   CONTINUE SURVEY
-========================================= */
 
 const continueSurvey = async (user, value, language, res) => {
   const step = user.surveyProgress.currentStep;
 
-  // Guard: no value submitted → re-ask the same step
+ 
   if (!value) {
     return askCurrentStep(step, language, res);
   }

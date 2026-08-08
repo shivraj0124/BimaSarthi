@@ -1,8 +1,9 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { verifyAccessToken } = require("../service/Msg91service");
 
-/* ================= SIGNUP ================= */
+
 const signup = async (req, res) => {
   try {
     const {
@@ -64,7 +65,6 @@ const signup = async (req, res) => {
   }
 };
 
-/* ================= LOGIN ================= */
 const login = async (req, res) => {
   try {
     const { mobileNumber, password } = req.body;
@@ -151,8 +151,101 @@ const getSingleUser = async (req, res) => {
   }
 };
 
+
+const verifyWidgetToken = async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+
+    const result = await verifyAccessToken(accessToken);
+
+    console.log("MSG91 Verified:", result);
+
+    return res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Verification failed",
+    });
+  }
+};
+
+const checkMobileExists = async (req, res) => {
+  try {
+    const { mobileNumber } = req.body;
+
+    if (!mobileNumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number is required",
+      });
+    }
+
+    const user = await User.findOne({ mobileNumber });
+
+    return res.json({
+      success: true,
+      exists: !!user,
+    });
+  } catch (error) {
+    console.error("Check mobile error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { mobileNumber, newPassword } = req.body;
+
+    if (!mobileNumber || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number and new password are required",
+      });
+    }
+
+    const user = await User.findOne({ mobileNumber });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password reset successfully",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reset password",
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
-  getSingleUser
+  getSingleUser,
+  verifyWidgetToken,
+  checkMobileExists,
+  resetPassword
 };

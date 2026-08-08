@@ -74,7 +74,7 @@ const InsuranceScreen = () => {
 
       if (response.data.success) {
         setInsurancePlans(response.data.data);
-        // console.log("Fetched insurance plans:", response.data.data);
+        console.log("Fetched insurance plans:", response.data.data);
       }
     } catch (error) {
       // console.log(

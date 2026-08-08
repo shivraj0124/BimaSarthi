@@ -41,10 +41,8 @@ export default function LoginScreen() {
       const data = response.data;
 
       if (data.success) {
-        // ✅ Save token
         await AsyncStorage.setItem("token", data.token);
 
-        // ✅ Save user (optional but recommended)
         await AsyncStorage.setItem("user", JSON.stringify(data.user));
         saveUser(data.user);
         Alert.alert("Success", data.message);
@@ -52,8 +50,7 @@ export default function LoginScreen() {
         router.replace("/(tabs)/home");
       }
     } catch (error) {
-      // console.log("Login Error:", error.response?.data || error.message);
-
+      
       if (error.response?.status === 404) {
         Alert.alert("Error", "User not found");
       } else if (error.response?.status === 401) {
@@ -91,6 +88,15 @@ export default function LoginScreen() {
           onChangeText={setPassword}
         />
       </View>
+      <TouchableOpacity
+  onPress={() => router.push("/forgotPassword")}
+  className="mb-4 self-end"
+>
+  <Text className="text-green-700 font-medium">
+    Forgot Password?
+  </Text>
+</TouchableOpacity>
+
 
       <TouchableOpacity
         onPress={handleLogin}
@@ -117,6 +123,8 @@ export default function LoginScreen() {
           {t("newUser", language)} {t("signup", language)}
         </Text>
       </TouchableOpacity>
+
+      
     </View>
   );
 }
