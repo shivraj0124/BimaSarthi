@@ -15,12 +15,9 @@ const speechRoutes = require("./routes/speechRoutes");
 const ragChatRoutes = require("./routes/ragChatRoutes");
 
 
-
-// Middleware
 app.use(express.json());
 app.use(cors());
-console.log("MONGODB_URI:", MONGODB_URI);
-// MongoDB Connection (with try–catch)
+
 const connectDB = async () => {
   try {
     await mongoose.connect(MONGODB_URI);
@@ -31,7 +28,6 @@ const connectDB = async () => {
   }
 };
 
-// Call DB connection
 connectDB();
 
 // Routes
@@ -42,7 +38,7 @@ app.use("/api/agent", agentRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/speech", speechRoutes);
 app.use("/api/rag-chat", ragChatRoutes);
-// Global error handler (optional but good practice)
+
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
@@ -51,7 +47,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
