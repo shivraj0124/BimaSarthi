@@ -1,23 +1,26 @@
 import React from "react";
-import {
-  ScrollView,
-  Text,
-  View,
-  Image,
-  TouchableOpacity,
-} from "react-native";
+import { ScrollView, Text, View, Image, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRoute, useNavigation } from "@react-navigation/native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useApp } from "../../contexts/AppContext";
-import { LinearGradient } from 'expo-linear-gradient'; // Install: expo install expo-linear-gradient
-import { Feather, Ionicons } from '@expo/vector-icons'; // For the back arrow icon
+import { LinearGradient } from "expo-linear-gradient"; // Install: expo install expo-linear-gradient
+import { Feather, Ionicons } from "@expo/vector-icons"; // For the back arrow icon
 import { t } from "../../localization/translate";
-import * as Speech from 'expo-speech';
+import * as Speech from "expo-speech";
 const InsuranceDetailsScreen = () => {
-  const route = useRoute();
-  const navigation = useNavigation();
-  const { plan } = route.params;
+  const router = useRouter();
+  const { plan } = useLocalSearchParams();
+  const parsedPlan = React.useMemo(() => {
+    if (!plan) return null;
+    try {
+      return typeof plan === "string" ? JSON.parse(plan) : plan;
+    } catch (error) {
+      return null;
+    }
+  }, [plan]);
   const { darkMode, language } = useApp();
+
+  if (!parsedPlan) return null;
   const speakInfo = (text) => {
     Speech.speak(text, {
       language:
@@ -40,8 +43,9 @@ const InsuranceDetailsScreen = () => {
       <View className="flex-row items-center mb-3">
         <View className="w-1 h-6 bg-green-500 rounded-full mr-3" />
         <Text
-          className={`text-2xl font-bold ${darkMode ? "text-white" : "text-gray-900"
-            }`}
+          className={`text-2xl font-bold ${
+            darkMode ? "text-white" : "text-gray-900"
+          }`}
         >
           {title}
         </Text>
@@ -57,12 +61,16 @@ const InsuranceDetailsScreen = () => {
         <Text className="text-green-700 font-bold">{index + 1}</Text>
       </View>
       <Text
-        className={`flex-1 text-xl leading-6 ${darkMode ? "text-gray-300" : "text-gray-700"
-          }`}
+        className={`flex-1 text-xl leading-6 ${
+          darkMode ? "text-gray-300" : "text-gray-700"
+        }`}
       >
         {text}
       </Text>
-      <TouchableOpacity onPress={() => speakInfo(benefit)} className=" p-1 w-max rounded-full bg-green-100">
+      <TouchableOpacity
+        onPress={() => speakInfo(text)}
+        className=" p-1 w-max rounded-full bg-green-100"
+      >
         <Feather name="volume-2" size={24} color="#059669" />
       </TouchableOpacity>
     </View>
@@ -71,8 +79,9 @@ const InsuranceDetailsScreen = () => {
   // Document Item Component
   const DocumentItem = ({ text, index }) => (
     <View
-      className={`flex-row items-center p-3 mb-2 rounded-xl ${darkMode ? "bg-gray-800" : "bg-white"
-        }`}
+      className={`flex-row items-center p-3 mb-2 rounded-xl ${
+        darkMode ? "bg-gray-800" : "bg-white"
+      }`}
       style={{
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
@@ -83,12 +92,16 @@ const InsuranceDetailsScreen = () => {
     >
       <View className="w-2 h-2 rounded-full bg-green-500 mr-3" />
       <Text
-        className={`flex-1 text-xl ${darkMode ? "text-gray-300" : "text-gray-700"
-          }`}
+        className={`flex-1 text-xl ${
+          darkMode ? "text-gray-300" : "text-gray-700"
+        }`}
       >
         {text}
       </Text>
-      <TouchableOpacity onPress={() => speakInfo(text)} className=" p-1 w-max rounded-full bg-green-100">
+      <TouchableOpacity
+        onPress={() => speakInfo(text)}
+        className=" p-1 w-max rounded-full bg-green-100"
+      >
         <Feather name="volume-2" size={24} color="#059669" />
       </TouchableOpacity>
     </View>
@@ -107,23 +120,26 @@ const InsuranceDetailsScreen = () => {
           <Image
             source={{
               uri:
-                plan.imageUrl ||
+                parsedPlan.imageUrl ||
                 "https://www.pngplay.com/wp-content/uploads/7/Insurance-Transparent-Images.png",
             }}
             className="w-full h-64"
             resizeMode="cover"
           />
           <LinearGradient
-            colors={['transparent', darkMode ? 'rgba(17, 24, 39, 0.9)' : 'rgba(249, 250, 251, 0.9)']}
+            colors={[
+              "transparent",
+              darkMode ? "rgba(17, 24, 39, 0.9)" : "rgba(249, 250, 251, 0.9)",
+            ]}
             className="absolute bottom-0 left-0 right-0 h-32"
           />
 
           {/* Back Button */}
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => router.back()}
             className="absolute top-6 left-4 rounded-full p-2"
             style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.25,
@@ -138,10 +154,11 @@ const InsuranceDetailsScreen = () => {
         <View className="px-5">
           {/* Plan Name */}
           <Text
-            className={`text-3xl font-bold mb-2 ${darkMode ? "text-white" : "text-gray-900"
-              }`}
+            className={`text-3xl font-bold mb-2 ${
+              darkMode ? "text-white" : "text-gray-900"
+            }`}
           >
-            {plan.name}
+            {parsedPlan.name}
           </Text>
 
           {/* Premium & Coverage Cards */}
@@ -150,7 +167,7 @@ const InsuranceDetailsScreen = () => {
             <View
               className="flex-1 rounded-2xl p-6"
               style={{
-                backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                backgroundColor: darkMode ? "#1f2937" : "#ffffff",
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.1,
@@ -158,9 +175,11 @@ const InsuranceDetailsScreen = () => {
                 elevation: 3,
               }}
             >
-              <Text className="text-lg text-gray-500 mb-1">{t("monthlyPremium", language)}</Text>
+              <Text className="text-lg text-gray-500 mb-1">
+                {t("monthlyPremium", language)}
+              </Text>
               <Text className="text-2xl font-bold text-green-600">
-                {plan.premium || "N/A"}
+                {parsedPlan.premium || "N/A"}
               </Text>
             </View>
 
@@ -168,7 +187,7 @@ const InsuranceDetailsScreen = () => {
             <View
               className="flex-1 rounded-2xl p-6"
               style={{
-                backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                backgroundColor: darkMode ? "#1f2937" : "#ffffff",
                 shadowColor: "#000",
                 shadowOffset: { width: 0, height: 2 },
                 shadowOpacity: 0.1,
@@ -176,19 +195,22 @@ const InsuranceDetailsScreen = () => {
                 elevation: 3,
               }}
             >
-              <Text className="text-lg text-gray-500 mb-1">{t("coverage", language)}</Text>
+              <Text className="text-lg text-gray-500 mb-1">
+                {t("coverage", language)}
+              </Text>
               <Text className="text-2xl font-bold text-green-600">
-                {plan.coverageAmount || "N/A"}
+                {parsedPlan.coverageAmount || "N/A"}
               </Text>
             </View>
           </View>
 
           {/* Overview */}
-          {plan?.detailedInformation?.overview && (
+          {parsedPlan?.detailedInformation?.overview && (
             <Section title={t("overview", language)}>
               <View
-                className={`rounded-2xl flex-col justify-start items-start p-6 ${darkMode ? "bg-gray-800" : "bg-white"
-                  }`}
+                className={`rounded-2xl flex-col justify-start items-start p-6 ${
+                  darkMode ? "bg-gray-800" : "bg-white"
+                }`}
                 style={{
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: 2 },
@@ -198,12 +220,18 @@ const InsuranceDetailsScreen = () => {
                 }}
               >
                 <Text
-                  className={`text-xl leading-7 ${darkMode ? "text-gray-300" : "text-gray-700"
-                    }`}
+                  className={`text-xl leading-7 ${
+                    darkMode ? "text-gray-300" : "text-gray-700"
+                  }`}
                 >
-                  {plan.detailedInformation.overview}
+                  {parsedPlan.detailedInformation.overview}
                 </Text>
-                <TouchableOpacity onPress={() => speakInfo(plan.detailedInformation.overview)} className=" p-1 w-max rounded-full bg-green-100">
+                <TouchableOpacity
+                  onPress={() =>
+                    speakInfo(parsedPlan.detailedInformation.overview)
+                  }
+                  className=" p-1 w-max rounded-full bg-green-100"
+                >
                   <Feather name="volume-2" size={24} color="#059669" />
                 </TouchableOpacity>
               </View>
@@ -211,11 +239,12 @@ const InsuranceDetailsScreen = () => {
           )}
 
           {/* Benefits */}
-          {plan.detailedInformation?.benefits?.length > 0 && (
+          {parsedPlan.detailedInformation?.benefits?.length > 0 && (
             <Section title={t("keyBenefits", language)}>
               <View
-                className={`rounded-2xl p-6 ${darkMode ? "bg-gray-800" : "bg-white"
-                  }`}
+                className={`rounded-2xl p-6 ${
+                  darkMode ? "bg-gray-800" : "bg-white"
+                }`}
                 style={{
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: 2 },
@@ -224,22 +253,27 @@ const InsuranceDetailsScreen = () => {
                   elevation: 2,
                 }}
               >
-                {plan.detailedInformation.benefits.map((benefit, index) => (
-                  <View className="flex-col items-satrt justify-start" key={index}>
-                    <BenefitItem key={index} text={benefit} index={index} />
-
-                  </View>
-                ))}
+                {parsedPlan.detailedInformation.benefits.map(
+                  (benefit, index) => (
+                    <View
+                      className="flex-col items-satrt justify-start"
+                      key={index}
+                    >
+                      <BenefitItem key={index} text={benefit} index={index} />
+                    </View>
+                  ),
+                )}
               </View>
             </Section>
           )}
 
           {/* Eligibility */}
-          {plan.detailedInformation?.eligibility && (
+          {parsedPlan.detailedInformation?.eligibility && (
             <Section title={t("eligibility", language)}>
               <View
-                className={`rounded-2xl p-6 ${darkMode ? "bg-gray-800" : "bg-white"
-                  }`}
+                className={`rounded-2xl p-6 ${
+                  darkMode ? "bg-gray-800" : "bg-white"
+                }`}
                 style={{
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: 2 },
@@ -250,12 +284,18 @@ const InsuranceDetailsScreen = () => {
               >
                 <View className="flex-col items-start justify-start">
                   <Text
-                    className={`text-xl leading-7 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
+                    className={`text-xl leading-7 ${
+                      darkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
                   >
-                    {plan.detailedInformation.eligibility}
+                    {parsedPlan.detailedInformation.eligibility}
                   </Text>
-                  <TouchableOpacity onPress={() => speakInfo(plan.detailedInformation.eligibility)} className="ml-2 p-1 w-max rounded-full bg-green-100">
+                  <TouchableOpacity
+                    onPress={() =>
+                      speakInfo(parsedPlan.detailedInformation.eligibility)
+                    }
+                    className="ml-2 p-1 w-max rounded-full bg-green-100"
+                  >
                     <Feather name="volume-2" size={24} color="#059669" />
                   </TouchableOpacity>
                 </View>
@@ -264,11 +304,12 @@ const InsuranceDetailsScreen = () => {
           )}
 
           {/* Claim Process */}
-          {plan.detailedInformation?.claimProcess && (
+          {parsedPlan.detailedInformation?.claimProcess && (
             <Section title={t("claimProcess", language)}>
               <View
-                className={`rounded-2xl p-6 ${darkMode ? "bg-gray-800" : "bg-white"
-                  }`}
+                className={`rounded-2xl p-6 ${
+                  darkMode ? "bg-gray-800" : "bg-white"
+                }`}
                 style={{
                   shadowColor: "#000",
                   shadowOffset: { width: 0, height: 2 },
@@ -278,14 +319,19 @@ const InsuranceDetailsScreen = () => {
                 }}
               >
                 <View className="flex-col items-start justify-start">
-
                   <Text
-                    className={`text-xl leading-7 ${darkMode ? "text-gray-300" : "text-gray-700"
-                      }`}
+                    className={`text-xl leading-7 ${
+                      darkMode ? "text-gray-300" : "text-gray-700"
+                    }`}
                   >
-                    {plan.detailedInformation.claimProcess}
+                    {parsedPlan.detailedInformation.claimProcess}
                   </Text>
-                  <TouchableOpacity onPress={() => speakInfo(plan.detailedInformation.claimProcess)} className="ml-2 p-1 w-max rounded-full bg-green-100">
+                  <TouchableOpacity
+                    onPress={() =>
+                      speakInfo(parsedPlan.detailedInformation.claimProcess)
+                    }
+                    className="ml-2 p-1 w-max rounded-full bg-green-100"
+                  >
                     <Feather name="volume-2" size={24} color="#059669" />
                   </TouchableOpacity>
                 </View>
@@ -294,12 +340,14 @@ const InsuranceDetailsScreen = () => {
           )}
 
           {/* Documents Required */}
-          {plan.documentsRequired?.length > 0 && (
+          {parsedPlan.documentsRequired?.length > 0 && (
             <Section title={t("documentsRequired", language)}>
-              {plan.documentsRequired.map((doc, index) => (
-                <View className="flex-row items-center justify-between" key={index}>
+              {parsedPlan.documentsRequired.map((doc, index) => (
+                <View
+                  className="flex-row items-center justify-between"
+                  key={index}
+                >
                   <DocumentItem key={index} text={doc} index={index} />
-
                 </View>
               ))}
             </Section>

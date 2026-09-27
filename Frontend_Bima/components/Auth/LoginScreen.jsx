@@ -26,6 +26,7 @@ export default function LoginScreen() {
       Alert.alert("Error", "Please enter mobile number and password");
       return;
     }
+    console.log("Attempting login with:", { mobileNumber, password });
 
     try {
       setLoading(true);

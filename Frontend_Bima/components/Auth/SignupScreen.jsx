@@ -16,7 +16,7 @@ import { useApp } from "../../contexts/AppContext";
 import { t } from "../../localization/translate";
 
 const widgetId = "3668686d4651323733313232";
-const tokenAuth = "558633T0r6p7pBCC6a773011P1";
+const tokenAuth = process.env.EXPO_PUBLIC_MSG91_TOKEN_AUTH;
 
 export default function SignupScreen() {
   const { language, saveUser } = useApp();

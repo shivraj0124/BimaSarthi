@@ -1,25 +1,50 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import React, { useState, useEffect } from "react";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import axios from "axios";
 import { useApp } from "../../contexts/AppContext";
 import { t } from "../../localization/translate";
-import { Video } from "expo-av";
-import { LinearGradient } from 'expo-linear-gradient';
+import { VideoView, useVideoPlayer } from "expo-video";
+import { LinearGradient } from "expo-linear-gradient";
+
+/**
+ * Video component for expo-video
+ *
+ * IMPORTANT:
+ * useVideoPlayer is a hook, so it must be inside
+ * its own React component and not directly inside map().
+ */
+const LearnVideo = ({ uri }) => {
+  const player = useVideoPlayer(uri, (player) => {
+    player.loop = false;
+  });
+
+  return (
+    <VideoView
+      player={player}
+      style={{
+        width: "100%",
+        height: 220,
+      }}
+      nativeControls
+      contentFit="cover"
+    />
+  );
+};
 
 const LearnScreen = () => {
   const { darkMode, language } = useApp();
-  const navigation = useNavigation();
+  const router = useRouter();
 
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [searchText, setSearchText] = useState("");
@@ -28,21 +53,42 @@ const LearnScreen = () => {
 
   // Categories with icons
   const categories = [
-    { id: "ALL", name: t("All",language), icon: "grid-outline" },
-    { id: "basics", name: t("basics",language), icon: "book-outline" },
-    { id: "claim", name: t("claim",language), icon: "document-text-outline" },
-    { id: "fraud", name: t("fraud",language), icon: "shield-checkmark-outline" },
-    { id: "Government", name: t("Government",language), icon: "business-outline" },
-    { id: "Private", name: t("Private",language), icon: "briefcase-outline" },
+    {
+      id: "ALL",
+      name: t("All", language),
+      icon: "grid-outline",
+    },
+    {
+      id: "basics",
+      name: t("basics", language),
+      icon: "book-outline",
+    },
+    {
+      id: "claim",
+      name: t("claim", language),
+      icon: "document-text-outline",
+    },
+    {
+      id: "fraud",
+      name: t("fraud", language),
+      icon: "shield-checkmark-outline",
+    },
+    {
+      id: "Government",
+      name: t("Government", language),
+      icon: "business-outline",
+    },
+    {
+      id: "Private",
+      name: t("Private", language),
+      icon: "briefcase-outline",
+    },
   ];
+
   const handleCategoryPress = (categoryId) => {
-    // if(categoryId === "fraud"){
-    //   navigation.navigate("FraudSc")
-    // }else if(categoryId === "claim"){
-    //   navigation.navigate("ClaimSc")
-    // }
     setSelectedCategory(categoryId);
-  }
+  };
+
   useEffect(() => {
     fetchLearnData();
   }, [language]);
@@ -50,31 +96,36 @@ const LearnScreen = () => {
   const fetchLearnData = async () => {
     try {
       setLoading(true);
-      // console.log("Fetching learn data for language:", language);
+
       const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}/learn?lang=${language}`
+        `${process.env.EXPO_PUBLIC_API_URL}/learn?lang=${language}`,
       );
 
       if (response.data.success) {
         setLearnData(response.data.data);
       }
-      // console.log("Learn Data Fetched:", response.data.data.length, "items");
     } catch (error) {
-      // console.log("Learn Fetch Error:", error.message);
+      console.log(
+        "Learn Fetch Error:",
+        error?.response?.data || error?.message || error,
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const filteredData = learnData.filter((item) => {
-    // console.log("Filtering item:", item.category);
+    const title = item?.title || "";
+    const description = item?.description || "";
 
     const matchesCategory =
       selectedCategory === "ALL" || item.category === selectedCategory;
 
+    const search = searchText.toLowerCase();
+
     const matchesSearch =
-      item.title.toLowerCase().includes(searchText.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchText.toLowerCase());
+      title.toLowerCase().includes(search) ||
+      description.toLowerCase().includes(search);
 
     return matchesCategory && matchesSearch;
   });
@@ -84,15 +135,23 @@ const LearnScreen = () => {
       edges={["top"]}
       className={`flex-1 ${darkMode ? "bg-gray-900" : "bg-gray-50"}`}
     >
-      {/* Header with Gradient */}
+      {/* Header */}
       <LinearGradient
-        colors={darkMode ? ['#1f2937', '#111827'] : ['#10b981', '#059669']}
-        className="px-5 pt-6 pb-4"
+        colors={darkMode ? ["#1f2937", "#111827"] : ["#10b981", "#059669"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={{
+          paddingHorizontal: 20,
+          paddingTop: 20,
+          paddingBottom: 20,
+        }}
       >
-        <View className="flex-row items-center mb-4">
+        {/* Header */}
+        <View className="flex-row items-center mb-5">
           <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
             <Feather name="book-open" size={20} color="white" />
           </View>
+
           <Text className="ml-3 text-2xl font-bold text-white">
             {t("learnInsurance", language)}
           </Text>
@@ -100,15 +159,19 @@ const LearnScreen = () => {
 
         {/* Search Bar */}
         <View
-          className="flex-row items-center rounded-2xl px-4 py-3"
+          className="flex-row items-center rounded-2xl"
           style={{
-            backgroundColor: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.95)',
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            backgroundColor: darkMode
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(255, 255, 255, 0.95)",
           }}
         >
-          <Feather 
-            name="search" 
-            size={20} 
-            color={darkMode ? "#9ca3af" : "#059669"} 
+          <Feather
+            name="search"
+            size={20}
+            color={darkMode ? "#9ca3af" : "#059669"}
           />
 
           <TextInput
@@ -122,11 +185,19 @@ const LearnScreen = () => {
           />
 
           {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchText("")}>
-              <Ionicons 
-                name="close-circle" 
-                size={20} 
-                color={darkMode ? "#9ca3af" : "#6b7280"} 
+            <TouchableOpacity
+              onPress={() => setSearchText("")}
+              hitSlop={{
+                top: 8,
+                bottom: 8,
+                left: 8,
+                right: 8,
+              }}
+            >
+              <Ionicons
+                name="close-circle"
+                size={20}
+                color={darkMode ? "#9ca3af" : "#6b7280"}
               />
             </TouchableOpacity>
           )}
@@ -147,28 +218,30 @@ const LearnScreen = () => {
             {t("filterByCategory", language)}
           </Text>
 
-          <ScrollView 
-            horizontal 
+          <ScrollView
+            horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 12 }}
           >
             {categories.map((category) => {
               const isSelected = selectedCategory === category.id;
+
               return (
                 <TouchableOpacity
                   key={category.id}
                   onPress={() => handleCategoryPress(category.id)}
-                  className={`rounded-2xl px-5 py-3 flex-row items-center ${
+                  activeOpacity={0.8}
+                  className={`rounded-2xl px-5 py-3 flex-row items-center border ${
                     isSelected
-                      ? ""
+                      ? "border-transparent"
                       : darkMode
-                      ? "bg-gray-800"
-                      : "bg-white"
+                        ? "bg-gray-800 border-emerald-900/40"
+                        : "bg-white border-emerald-100"
                   }`}
                   style={
                     isSelected
                       ? {
-                          shadowColor: "#10b981",
+                          shadowColor: "#06dd95",
                           shadowOffset: { width: 0, height: 2 },
                           shadowOpacity: 0.3,
                           shadowRadius: 4,
@@ -183,33 +256,37 @@ const LearnScreen = () => {
                         }
                   }
                 >
-                  {isSelected ? (
+                  {isSelected && (
                     <LinearGradient
-                      colors={['#10b981', '#059669']}
+                      colors={["#07906c", "#12926e"]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
-                      className="absolute inset-0 rounded-2xl overflow-hidden"
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        borderRadius: 16,
+                      }}
                     />
-                  ) : null}
-                  
+                  )}
+
                   <Ionicons
                     name={category.icon}
                     size={18}
                     color={
-                      isSelected
-                        ? "#ffffff"
-                        : darkMode
-                        ? "#9ca3af"
-                        : "#059669"
+                      isSelected ? "#ffffff" : darkMode ? "#34d399" : "#059669"
                     }
                   />
+
                   <Text
-                    className={`ml-2 font-semibold rounded-2xl ${
+                    className={`ml-2 font-semibold ${
                       isSelected
                         ? "text-white"
                         : darkMode
-                        ? "text-gray-300"
-                        : "text-gray-700"
+                          ? "text-gray-300"
+                          : "text-gray-700"
                     }`}
                   >
                     {category.name}
@@ -244,74 +321,70 @@ const LearnScreen = () => {
         <View className="px-5">
           {!loading &&
             filteredData.map((item) => (
-              <TouchableOpacity
+              <View
                 key={item.id}
-                onPress={() => navigation.navigate("LearnDetail", { item })}
                 className="rounded-3xl mb-5 overflow-hidden"
                 style={{
                   backgroundColor: darkMode ? "#1f2937" : "#ffffff",
                   shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 4 },
+                  shadowOffset: {
+                    width: 0,
+                    height: 4,
+                  },
                   shadowOpacity: 0.1,
                   shadowRadius: 12,
                   elevation: 5,
                 }}
               >
-                {/* Media with Overlay */}
+                {/* Media */}
                 <View className="relative">
                   {item.contentType === "video" ? (
-                    <Video
-                      source={{ uri: item.mediaUrl }}
-                      style={{ width: "100%", height: 220 }}
-                      useNativeControls
-                      resizeMode="cover"
-                      shouldPlay={false}
-                    />
+                    <LearnVideo uri={item.mediaUrl} />
                   ) : (
                     <Image
-                      source={{ uri: item.mediaUrl }}
-                      style={{ width: "100%", height: 220 }}
+                      source={{
+                        uri: item.mediaUrl,
+                      }}
+                      style={{
+                        width: "100%",
+                        height: 220,
+                      }}
                       resizeMode="cover"
                     />
                   )}
 
                   {/* Gradient Overlay */}
                   <LinearGradient
-                    colors={['transparent', 'rgba(0, 0, 0, 0.6)']}
-                    className="absolute bottom-0 left-0 right-0 h-20"
+                    colors={["transparent", "rgba(0, 0, 0, 0.6)"]}
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      height: 80,
+                    }}
+                    pointerEvents="none"
                   />
 
                   {/* Content Type Badge */}
                   <View className="absolute top-3 right-3">
                     <View
                       className="rounded-full px-3 py-1.5 flex-row items-center"
-                      style={{ backgroundColor: 'rgba(16, 185, 129, 0.95)' }}
+                      style={{
+                        backgroundColor: "rgba(16, 185, 129, 0.95)",
+                      }}
                     >
                       <Ionicons
                         name={item.contentType === "video" ? "play" : "image"}
                         size={12}
                         color="white"
                       />
+
                       <Text className="ml-1 text-white font-semibold text-xs uppercase">
                         {item.contentType}
                       </Text>
                     </View>
                   </View>
-
-                  {/* Duration Badge (for videos)
-                  {item.contentType === "video" && item.duration && (
-                    <View className="absolute bottom-3 left-3">
-                      <View
-                        className="rounded-lg px-2 py-1 flex-row items-center"
-                        style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}
-                      >
-                        <Ionicons name="time-outline" size={12} color="white" />
-                        <Text className="ml-1 text-white font-medium text-xs">
-                          {item.duration}
-                        </Text>
-                      </View>
-                    </View>
-                  )} */}
                 </View>
 
                 {/* Content */}
@@ -321,13 +394,17 @@ const LearnScreen = () => {
                     <View className="flex-row items-center mb-2">
                       <View
                         className="rounded-full px-2 py-1"
-                        style={{ backgroundColor: darkMode ? '#374151' : '#dcfce7' }}
+                        style={{
+                          backgroundColor: darkMode ? "#374151" : "#dcfce7",
+                        }}
                       >
                         <Text
                           className="text-md font-medium"
-                          style={{ color: darkMode ? '#86efac' : '#059669' }}
+                          style={{
+                            color: darkMode ? "#86efac" : "#059669",
+                          }}
                         >
-                          {t(`${item.category}`,language)}
+                          {t(`${item.category}`, language)}
                         </Text>
                       </View>
                     </View>
@@ -354,12 +431,17 @@ const LearnScreen = () => {
                     {item.description}
                   </Text>
 
-                  {/* Meta Info Row */}
+                  {/* Meta Info */}
                   <View className="flex-row items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
                     {/* Views */}
                     {item.views !== undefined && (
                       <View className="flex-row items-center">
-                        <Ionicons name="eye-outline" size={16} color="#9ca3af" />
+                        <Ionicons
+                          name="eye-outline"
+                          size={16}
+                          color="#9ca3af"
+                        />
+
                         <Text
                           className={`ml-1 text-lg ${
                             darkMode ? "text-gray-400" : "text-gray-500"
@@ -373,21 +455,33 @@ const LearnScreen = () => {
                       </View>
                     )}
 
-                    {/* Read More */}
-                    <View className="flex-row items-center">
+                    {/* Only Learn More is clickable */}
+                    <TouchableOpacity
+                      onPress={() =>
+                        router.push({
+                          pathname: "/LearnDetail",
+                          params: {
+                            item: JSON.stringify(item),
+                          },
+                        })
+                      }
+                      activeOpacity={0.7}
+                      className="flex-row items-center"
+                    >
                       <Text className="text-green-600 font-semibold text-lg">
-                        {t("learnMore",language)}
+                        {t("learnMore", language)}
                       </Text>
+
                       <Ionicons
                         name="arrow-forward"
                         size={20}
                         color="#10b981"
                         style={{ marginLeft: 4 }}
                       />
-                    </View>
+                    </TouchableOpacity>
                   </View>
                 </View>
-              </TouchableOpacity>
+              </View>
             ))}
         </View>
 
@@ -399,6 +493,7 @@ const LearnScreen = () => {
               size={64}
               color={darkMode ? "#4b5563" : "#d1d5db"}
             />
+
             <Text
               className={`text-lg font-medium mt-4 ${
                 darkMode ? "text-gray-400" : "text-gray-500"
@@ -406,6 +501,7 @@ const LearnScreen = () => {
             >
               No learning content found
             </Text>
+
             <Text
               className={`text-sm mt-2 ${
                 darkMode ? "text-gray-500" : "text-gray-400"

@@ -9,6 +9,7 @@ exports.transcribeAudio = async (req, res) => {
         message: "Audio file is required.",
       });
     }
+    console.log("Received file:", req.file.originalname, "at path:", req.file.path);
 
     const languageMap = {
       en: "en-IN",

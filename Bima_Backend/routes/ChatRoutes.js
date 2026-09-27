@@ -7,7 +7,7 @@ const {
     getUserSessions,
     deleteSession,
     renameSession
-} = require("../controllers/chatController");
+} = require("../controllers/ChatController");
 
 router.get("/history/:sessionId", getChatHistory);
 

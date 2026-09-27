@@ -12,7 +12,7 @@ const learnRoutes = require("./routes/Learn");
 const agentRoutes = require("./routes/AgentRoutes");
 const chatRoutes = require("./routes/ChatRoutes");
 const speechRoutes = require("./routes/speechRoutes");
-
+const ragChatRoutes = require("./routes/ragChatRoutes");
 
 
 
@@ -41,6 +41,7 @@ app.use("/api/learn", learnRoutes);
 app.use("/api/agent", agentRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/speech", speechRoutes);
+app.use("/api/rag-chat", ragChatRoutes);
 // Global error handler (optional but good practice)
 app.use((err, req, res, next) => {
   console.error(err.stack);
