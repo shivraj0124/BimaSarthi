@@ -306,29 +306,17 @@ Now answer the user's question.
   // 9. Generate answer using Groq
   // ================================================
 
-  const answer =
-    await askGroq(prompt);
-
-
-  // ================================================
-  // 10. Save ASSISTANT message
-  // ================================================
+  const answer = await askGroq(prompt);
 
   await saveAssistantMessage({
     userId,
     sessionId,
-    message: answer,
-
-    insuranceId:
-      currentInsurance?._id || null,
-
+    message: answer.res,
+    insuranceId: currentInsurance?._id || null,
     language,
+    usage: answer.usage,
   });
 
-
-  // ================================================
-  // 11. Return response
-  // ================================================
 
   return {
   sessionId,
@@ -348,7 +336,7 @@ Now answer the user's question.
       language: chunk.language,
       score: chunk.score,
     })
-  ),
+  )
 };
 };
 

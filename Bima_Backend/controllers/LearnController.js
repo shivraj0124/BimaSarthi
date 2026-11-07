@@ -1,7 +1,7 @@
 const Learn = require("../models/Learn");
 
 
-// ✅ CREATE (POST)
+
 exports.createLearn = async (req, res) => {
     console.log("Hello")
   try {
@@ -21,7 +21,6 @@ exports.createLearn = async (req, res) => {
 
 
 
-// ✅ GET ALL (with language support)
 exports.getAllLearn = async (req, res) => {
   try {
     const lang = req.query.lang || "en";
@@ -57,7 +56,6 @@ exports.getAllLearn = async (req, res) => {
 
 
 
-// ✅ GET SINGLE
 exports.getSingleLearn = async (req, res) => {
   try {
     const lang = req.query.lang || "en";
@@ -99,7 +97,6 @@ exports.getSingleLearn = async (req, res) => {
 
 
 
-// ✅ UPDATE
 exports.updateLearn = async (req, res) => {
   try {
     const updated = await Learn.findByIdAndUpdate(
@@ -128,8 +125,6 @@ exports.updateLearn = async (req, res) => {
 };
 
 
-
-// ✅ DELETE
 exports.deleteLearn = async (req, res) => {
   try {
     const deleted = await Learn.findByIdAndDelete(req.params.id);

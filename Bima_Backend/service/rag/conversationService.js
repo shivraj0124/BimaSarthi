@@ -56,12 +56,32 @@ const saveUserMessage = async ({
 /**
  * Save an assistant response.
  */
+// const saveAssistantMessage = async ({
+//   userId,
+//   sessionId,
+//   message,
+//   insuranceId = null,
+//   language = "en",
+// }) => {
+//   return Chat.create({
+//     userId,
+//     sessionId,
+//     role: "ASSISTANT",
+//     message,
+//     insuranceId,
+//     language,
+//     isInsuranceRelated: !!insuranceId,
+//   });
+// };
+
+// token usage added
 const saveAssistantMessage = async ({
   userId,
   sessionId,
   message,
   insuranceId = null,
   language = "en",
+  usage = {},
 }) => {
   return Chat.create({
     userId,
@@ -70,17 +90,18 @@ const saveAssistantMessage = async ({
     message,
     insuranceId,
     language,
+
+    usage: {
+      promptTokens: usage.prompt_tokens || 0,
+      completionTokens: usage.completion_tokens || 0,
+      reasoningTokens: usage.completion_tokens_details?.reasoning_tokens || 0,
+      totalTokens: usage.total_tokens || 0,
+    },
+
     isInsuranceRelated: !!insuranceId,
   });
 };
 
-
-/**
- * Get recent conversation messages.
- *
- * This will later be used to provide conversational
- * context to the RAG/LLM layer.
- */
 const getRecentMessages = async ({
   userId,
   sessionId,

@@ -3,6 +3,7 @@ const router = express.Router();
 const insuranceController = require("../controllers/InsuranceController");
 
 router.post("/", insuranceController.createInsurance);
+router.post("/bulk", insuranceController.createInsuranceBulk);
 router.get("/", insuranceController.getAllInsurance);
 router.get("/:id", insuranceController.getInsuranceById);
 router.put("/:id", insuranceController.updateInsurance);

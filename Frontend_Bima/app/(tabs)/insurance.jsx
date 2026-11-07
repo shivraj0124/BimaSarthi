@@ -301,7 +301,7 @@ const InsuranceScreen = () => {
           </View>
 
           {/* Take Survey Button */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             onPress={() => router.push("/survey")}
             activeOpacity={0.8}
             className="rounded-full"
@@ -319,7 +319,7 @@ const InsuranceScreen = () => {
                 Survey
               </Text>
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
         {/* Search Bar */}

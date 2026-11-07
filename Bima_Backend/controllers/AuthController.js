@@ -19,7 +19,6 @@ const signup = async (req, res) => {
     
     console.log("hello world",req.body);
 
-    // Check existing user
     const existingUser = await User.findOne({ mobileNumber });
     if (existingUser) {
       return res.status(400).json({
@@ -28,11 +27,9 @@ const signup = async (req, res) => {
       });
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create user
     const user = await User.create({
       fullName,
       mobileNumber,
@@ -70,7 +67,6 @@ const login = async (req, res) => {
     const { mobileNumber, password } = req.body;
     console.log(req.body);
 
-    // Find user
     const user = await User.findOne({ mobileNumber });
     if (!user) {
       return res.status(404).json({
@@ -79,7 +75,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
@@ -88,14 +83,12 @@ const login = async (req, res) => {
       });
     }
 
-    // Create JWT
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // Update last login
     user.lastLoginAt = new Date();
     await user.save();
 
@@ -119,7 +112,7 @@ const getSingleUser = async (req, res) => {
     const { userId } = req.body;
     console.log("getSingleUser called with userId:", userId);
 
-    // 1️⃣ Validate
+   
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -127,7 +120,7 @@ const getSingleUser = async (req, res) => {
       });
     }
 
-    // 2️⃣ Find user by ID
+   
     const user = await User.findById(userId)
     if (!user) {
       return res.status(404).json({
@@ -136,7 +129,7 @@ const getSingleUser = async (req, res) => {
       });
     }
 
-    // 3️⃣ Success response
+   
     return res.status(200).json({
       success: true,
       user,
@@ -221,7 +214,6 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // Hash new password
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
 

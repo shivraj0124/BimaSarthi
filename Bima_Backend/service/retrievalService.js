@@ -1,8 +1,6 @@
 const Insurance = require("../models/Insurance");
 
-/* ---------------------------------------
-   Find Insurance by Name / Alias / Keyword
----------------------------------------- */
+
 
 const detectInsurance = async (insuranceName) => {
   if (!insuranceName) return null;
@@ -36,9 +34,7 @@ const detectInsurance = async (insuranceName) => {
   return null;
 };
 
-/* ---------------------------------------
-   Retrieve Context
----------------------------------------- */
+
 
 const retrieveContext = (insurance, intent) => {
   if (!insurance) return "";

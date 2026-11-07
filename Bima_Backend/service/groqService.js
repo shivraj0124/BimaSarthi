@@ -8,7 +8,7 @@ const client = new OpenAI({
 const askGroq = async (prompt) => {
   try {
     const response = await client.chat.completions.create({
-      model: "openai/gpt-oss-120b", 
+      model: "openai/gpt-oss-120b",
       messages: [
         {
           role: "system",
@@ -24,17 +24,18 @@ const askGroq = async (prompt) => {
       max_tokens: 1024,
     });
 
-    return response.choices[0].message.content.trim();
+    console.log("Token usage:", response.usage);
+
+    return {
+      res: response.choices[0].message.content.trim(),
+      usage: response.usage,
+    };
   } catch (error) {
-    console.error(
-      "Groq Error:",
-      error.response?.data || error.message
-    );
+    console.error("Groq Error:", error.response?.data || error.message);
 
     throw new Error("Failed to get response from Groq.");
   }
 };
-
 module.exports = askGroq;
 
 

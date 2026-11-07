@@ -96,6 +96,155 @@ exports.createInsurance = async (req, res) => {
   }
 };
 
+exports.createInsuranceBulk = async (req, res) => {
+  try {
+    const { insurances } = req.body;
+
+    // 1. Validate request
+    if (!Array.isArray(insurances) || insurances.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a non-empty array of insurance records.",
+      });
+    }
+
+    // Prevent accidentally submitting an excessively large batch
+    if (insurances.length > 200) {
+      return res.status(400).json({
+        success: false,
+        message: "Maximum 100 insurance records can be submitted at once.",
+      });
+    }
+
+    const results = [];
+    const seenNames = new Set();
+
+    // 2. Process records individually so one failure
+    // doesn't prevent other valid records from being saved
+    for (let i = 0; i < insurances.length; i++) {
+      const record = insurances[i];
+
+      try {
+        // Validate required fields
+        if (
+          !record ||
+          !record.name ||
+          typeof record.name.en !== "string" ||
+          !record.name.en.trim() ||
+          !record.type ||
+          !record.category
+        ) {
+          results.push({
+            index: i,
+            name: record?.name?.en || null,
+            success: false,
+            message: "Name (English), type and category are required.",
+          });
+
+          continue;
+        }
+
+        const insuranceName = record.name.en.trim();
+        const normalizedName = insuranceName.toLowerCase();
+
+        // 3. Detect duplicate names within the submitted batch
+        if (seenNames.has(normalizedName)) {
+          results.push({
+            index: i,
+            name: insuranceName,
+            success: false,
+            message: "Duplicate insurance name in the submitted batch.",
+          });
+
+          continue;
+        }
+
+        seenNames.add(normalizedName);
+
+        // 4. Check whether insurance already exists in MongoDB
+        const escapedName = insuranceName.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&",
+        );
+
+        const existingInsurance = await Insurance.findOne({
+          "name.en": {
+            $regex: `^${escapedName}$`,
+            $options: "i",
+          },
+        });
+
+        if (existingInsurance) {
+          results.push({
+            index: i,
+            name: insuranceName,
+            success: false,
+            message: "Insurance already exists.",
+          });
+
+          continue;
+        }
+
+        // 5. Validate against the Mongoose schema
+        const insurance = new Insurance(record);
+
+        await insurance.validate();
+
+        // 6. Save the individual record
+        await insurance.save();
+
+        results.push({
+          index: i,
+          name: insuranceName,
+          success: true,
+          message: "Insurance created successfully.",
+          insuranceId: insurance._id,
+        });
+      } catch (error) {
+        // Handle validation or database errors for this record
+        results.push({
+          index: i,
+          name: record?.name?.en || null,
+          success: false,
+          message: error.message,
+        });
+      }
+    }
+
+    // 7. Calculate summary
+    const successful = results.filter((item) => item.success);
+    const failed = results.filter((item) => !item.success);
+
+    // 8. Clear cache if at least one record was saved
+    if (successful.length > 0) {
+      insuranceCache.clear();
+    }
+
+    return res.status(successful.length > 0 ? 201 : 400).json({
+      success: failed.length === 0,
+      message:
+        failed.length === 0
+          ? "All insurance records created successfully."
+          : successful.length > 0
+            ? "Bulk insertion completed with some failures."
+            : "No insurance records were created.",
+      summary: {
+        total: insurances.length,
+        successful: successful.length,
+        failed: failed.length,
+      },
+      results,
+    });
+  } catch (error) {
+    console.error("Bulk insurance creation error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Error processing bulk insurance creation.",
+      error: error.message,
+    });
+  }
+};
 
 exports.getAllInsurance = async (req, res) => {
   try {
@@ -104,7 +253,6 @@ exports.getAllInsurance = async (req, res) => {
     const supportedLangs = ["en", "hi", "mr"];
     const selectedLang = supportedLangs.includes(lang) ? lang : "en";
 
-    /* ---------------- CACHE KEY ---------------- */
 
     const cacheKey = JSON.stringify({
       category: category || "ALL",
@@ -113,7 +261,6 @@ exports.getAllInsurance = async (req, res) => {
       lang: selectedLang,
     });
 
-    /* ---------------- RETURN FROM CACHE ---------------- */
 
     if (insuranceCache.has(cacheKey)) {
       const cached = insuranceCache.get(cacheKey);
@@ -132,7 +279,6 @@ exports.getAllInsurance = async (req, res) => {
       insuranceCache.delete(cacheKey);
     }
 
-    /* ---------------- DATABASE FILTER ---------------- */
 
     let filter = {
       status: "ACTIVE",
@@ -143,7 +289,6 @@ exports.getAllInsurance = async (req, res) => {
 
     let insuranceList = await Insurance.find(filter).sort({ createdAt: -1 });
 
-    /* ---------------- SEARCH ---------------- */
 
     if (search) {
       const searchLower = search.toLowerCase();
@@ -166,7 +311,6 @@ exports.getAllInsurance = async (req, res) => {
       });
     }
 
-    /* ---------------- FORMAT RESPONSE ---------------- */
 
     const formattedData = insuranceList.map((item) => ({
       _id: item._id,
@@ -217,7 +361,6 @@ exports.getAllInsurance = async (req, res) => {
       createdAt: item.createdAt,
     }));
 
-    /* ---------------- SAVE TO CACHE ---------------- */
 
     insuranceCache.set(cacheKey, {
       data: formattedData,

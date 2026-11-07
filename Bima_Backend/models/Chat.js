@@ -36,7 +36,24 @@ const ChatSchema = new mongoose.Schema(
       enum: ["en", "hi", "mr"],
       default: "en",
     },
-
+    usage: {
+      promptTokens: {
+        type: Number,
+        default: 0,
+      },
+      completionTokens: {
+        type: Number,
+        default: 0,
+      },
+      reasoningTokens: {
+        type: Number,
+        default: 0,
+      },
+      totalTokens: {
+        type: Number,
+        default: 0,
+      },
+    },
     // AI metadata
     intent: {
       type: String,
@@ -46,11 +63,11 @@ const ChatSchema = new mongoose.Schema(
     isInsuranceRelated: {
       type: Boolean,
       default: false,
-    }
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("Chat", ChatSchema);

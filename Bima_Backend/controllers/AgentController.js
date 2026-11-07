@@ -430,7 +430,7 @@ const continueSurvey = async (user, value, language, res) => {
       });
     }
 
-    // ✅ All valid → persist permanently
+    // All valid → persist permanently
     user.surveyResponses = {
       ageGroup,
       occupation,

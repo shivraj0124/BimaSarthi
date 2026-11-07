@@ -334,9 +334,9 @@ export default function ChatBotScreen() {
         },
       );
 
+      
       const { success, data } = response.data;
 
-      console.log("RAG Chat Response:", data);
 
       setMessages((prev) => prev.filter((msg) => msg.type !== "thinking"));
 
@@ -348,8 +348,8 @@ export default function ChatBotScreen() {
         setSessionId(data.sessionId);
       }
 
-      if (data.answer) {
-        const cleanAnswer = data.answer
+      if (data.answer.res) {
+        const cleanAnswer = data.answer.res
           .replace(/\*\*(.*?)\*\*/g, "$1")
           .replace(/__(.*?)__/g, "$1")
           .trim();
